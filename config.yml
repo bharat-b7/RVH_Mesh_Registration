@@ -1,0 +1,7 @@
+# SMPL directories
+SMPL_MODELS_PATH: "/home/data/body_models/smpl"
+SMPL_ASSETS_PATH: "/home/data/body_models/smpl/assets"
+
+# Keypoints directories for kinect
+KEYPOINTS_2D_ROOT: "/home/data/hot_kinect_2d_joints/"
+KEYPOINTS_3D_ROOT: "/home/data/hot_kinect_3d_joints/"
