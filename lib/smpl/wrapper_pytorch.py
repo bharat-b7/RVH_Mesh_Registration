@@ -68,7 +68,7 @@ class SMPLPyTorchWrapperBatchSplitParams(nn.Module):
 
         # pytorch smpl
         self.smpl = SMPL_Layer(center_idx=0, gender=gender, num_betas=num_betas,
-                               model_root=str(model_root / "SMPL_python_v.1.1.0/smpl/models"))
+                               model_root=str(model_root))
 
         # Landmarks
         self.body25_reg_torch, self.face_reg_torch, self.hand_reg_torch = \
@@ -100,7 +100,7 @@ class SMPLPyTorchWrapperBatchSplitParams(nn.Module):
 
 class SMPLPyTorchWrapperBatch(nn.Module):
     def __init__(self, model_root, batch_sz, betas=None, pose=None, trans=None, offsets=None, faces=None,
-                 gender='male'):
+                 gender='male', num_betas=300):
         super(SMPLPyTorchWrapperBatch, self).__init__()
         self.model_root = model_root
 
@@ -129,8 +129,8 @@ class SMPLPyTorchWrapperBatch(nn.Module):
         self.gender = gender
 
         # pytorch smpl
-        self.smpl = SMPL_Layer(center_idx=0, gender=gender,
-                               model_root=str(model_root / "SMPL_python_v.1.1.0/smpl/models"))
+        self.smpl = SMPL_Layer(center_idx=0, gender=gender, num_betas=num_betas,
+                               model_root=str(model_root))
 
         # Landmarks
         self.body25_reg_torch, self.face_reg_torch, self.hand_reg_torch = \
@@ -159,7 +159,7 @@ class SMPLPyTorchWrapperBatch(nn.Module):
 
 
 class SMPLPyTorchWrapper(nn.Module):
-    def __init__(self, model_root, betas=None, pose=None, trans=None, offsets=None, gender='male'):
+    def __init__(self, model_root, betas=None, pose=None, trans=None, offsets=None, gender='male', num_betas=300):
         super(SMPLPyTorchWrapper, self).__init__()
         if betas is None:
             self.betas = nn.Parameter(torch.zeros(300,))
@@ -179,8 +179,8 @@ class SMPLPyTorchWrapper(nn.Module):
             self.offsets = nn.Parameter(offsets)
 
         ## pytorch smpl
-        self.smpl = SMPL_Layer(center_idx=0, gender=gender,
-                               model_root=str(model_root / "SMPL_python_v.1.1.0/smpl/models"))
+        self.smpl = SMPL_Layer(center_idx=0, gender=gender, num_betas=num_betas,
+                               model_root=str(model_root))
 
     def forward(self):
         verts, Jtr, tposed, naked = self.smpl(self.pose.unsqueeze(axis=0),

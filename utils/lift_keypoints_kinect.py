@@ -11,21 +11,23 @@ from pytorch3d.io import load_ply
 
 sys.path.insert(0, '.')
 from lib.body_objectives import batch_reprojection_loss_kinect
-from lib.io import load_kinect_exrtinsics, load_kinect_intrinsics, load_config, load_joints_2d
+from lib.io import load_kinect_exrtinsics, load_kinect_intrinsics, load_config, load_keypoints_2d
 from lib.parallel import parallel_map
 from lib.smpl.wrapper_naive import SMPLNaiveWrapper
 from lib.smpl.wrapper_pytorch import SMPLPyTorchWrapperBatch
 from lib.smpl.priors.th_smpl_prior import get_prior
 
+np.seterr(all="ignore")
 
-def get_joints_3d_initialization(centers, num, smpl_models_path, smpl_assets_path, device="cpu"):
+
+def get_joints_3d_initialization(centers, num, smpl_models_path, device="cpu"):
     # Get SMPL faces
-    naive_smpl = SMPLNaiveWrapper(model_root=smpl_models_path, assets_root=smpl_assets_path, gender='male')
+    naive_smpl = SMPLNaiveWrapper(model_root=smpl_models_path, gender='male')
     smpl_faces = naive_smpl.get_faces()
     th_faces = torch.tensor(smpl_faces.astype('float32'), dtype=torch.long).to(device)
 
     # Load pose prior to initialise pose
-    prior = get_prior(smpl_models_path, smpl_assets_path, gender='male', device=device)
+    prior = get_prior(smpl_models_path, gender='male', device=device)
 
     # Initialise pose and shape parameters
     batch_sz = centers.shape[0]
@@ -39,41 +41,51 @@ def get_joints_3d_initialization(centers, num, smpl_models_path, smpl_assets_pat
 
     if num == 25:
         return J.to(device)
+    elif num == 67:
+        joints = torch.cat([J, hands], axis=1).to(device)
+
+        return joints
     else:
-        joints_all = torch.cat([J, face, hands], axis=1)
-        return joints_all
+        joints = torch.cat([J, hands, face], axis=1).to(device)
+
+        return joints
 
 
-def worker(folder, device, smpl_models_path, smpl_assets_path, joints_2d_root, joints_3d_root, kinect_data_root):
-    np.seterr(all="ignore")
+def worker(folder, args, device):
     seq_name = folder.parent
     t_stamp = folder.name
 
-    target_filename = joints_3d_root / f"{folder}/3D_pose.json"
+    target_filename = args.keypoints_3d_root / f"{folder}/3D_pose.json"
     target_filename.parent.mkdir(parents=True, exist_ok=True)
 
-    if target_filename.is_file():
+    if not(args.force) and target_filename.is_file():
         return False
         # DEBUG
         # with target_filename.open('r') as fp:
         #     prev_res = json.load(fp)
 
-    joints_2d_file = joints_2d_root / f"{folder}/2D_pose.json"
-    joints_2d = load_joints_2d(joints_2d_file, device)
-    if joints_2d is None:
+    keypoints_2d_file = args.keypoints_2d_root / f"{folder}/2D_pose.json"
+    body_2d, face_2d, hand_l_2d, hand_r_2d = load_keypoints_2d(keypoints_2d_file, device)
+    if body_2d is None:
         return False
-    joints_num = joints_2d.shape[1]
 
-    scan = load_ply(kinect_data_root / f"{folder}/{t_stamp}.ply")
+    if args.hands:
+        keypoints_num = 67
+        keypoints_2d = torch.cat([body_2d, hand_l_2d, hand_r_2d], axis=1)
+    else:
+        keypoints_num = 25
+        keypoints_2d = body_2d
+
+    scan = load_ply(args.kinect_data_path / f"{folder}/{t_stamp}.ply")
     center = scan[0].mean(dim=0)
     centers = torch.unsqueeze(center, 0).to(device)
 
-    joints_3d = get_joints_3d_initialization(centers, joints_num, smpl_models_path, smpl_assets_path, device)
-    joints_3d = joints_3d.clone().detach().requires_grad_(True).to(device)
-    optimizer = torch.optim.Adam([joints_3d], 0.005, betas=(0.9, 0.999))
+    keypoints_3d_init = get_joints_3d_initialization(centers, keypoints_num, args.smpl_models_path, device)
+    keypoints_3d = keypoints_3d_init.clone().detach().requires_grad_(True).to(device)
+    optimizer = torch.optim.Adam([keypoints_3d], 0.005, betas=(0.9, 0.999))
 
-    color_mats, depth2colors = load_kinect_intrinsics(kinect_data_root / f"{seq_name}/intrinsics", device)
-    poses_reverse, pose_forward = load_kinect_exrtinsics(kinect_data_root / f"{seq_name}/extrinsics", device)
+    color_mats, depth2colors = load_kinect_intrinsics(args.kinect_data_path / f"{seq_name}/intrinsics", device)
+    poses_reverse, pose_forward = load_kinect_exrtinsics(args.kinect_data_path / f"{seq_name}/extrinsics", device)
     kinect_poses = poses_reverse
 
     iterations, steps_per_iter = 100, 30
@@ -81,15 +93,18 @@ def worker(folder, device, smpl_models_path, smpl_assets_path, joints_2d_root, j
     for it in range(iterations):
         for i in range(steps_per_iter):
             optimizer.zero_grad()
-            loss, j_projected = batch_reprojection_loss_kinect(joints_2d, joints_3d, color_mats, depth2colors,
-                                                               kinect_poses)
+            loss, j_projected = batch_reprojection_loss_kinect(keypoints_2d, keypoints_3d, color_mats, depth2colors, kinect_poses)
             loss.backward()
             optimizer.step()
 
-    res = joints_3d.cpu().detach().numpy()
+    res = keypoints_3d.cpu().detach().numpy()[0]
 
+    confidence = keypoints_2d[0, :, 2::3]
+    confidence = confidence.mean(dim=1, keepdim=True).cpu().detach().numpy()
+
+    res = np.concatenate([res, confidence], axis=1)
     with target_filename.open('w') as fp:
-        json.dump(res[0].tolist(), fp, indent=4)
+        json.dump(res.tolist(), fp, indent=4)
 
     # DEBUG
     # print(np.sum(np.asarray(prev_res) - res))
@@ -107,19 +122,30 @@ def main(args):
         data_folders = [Path(v) for v in data_folders]
         data_folders = [v.relative_to('/BS/bharat-4/static00/kinect_data/') for v in data_folders]
     else:
-        data_folders = args.kinect_data_path.rglob("t*.*")
+        data_folders = args.kinect_data_path.glob("*/t*.*")
         data_folders = [v.relative_to(args.kinect_data_path) for v in data_folders]
+
+        filtered_data_folders = []
+        for data_folder in data_folders[:]:
+            # if not('May06_bharat_backpack_lefthand' in data_folder.parent.name):
+            #     continue
+
+            keypoints_2d_file = args.keypoints_2d_root / f"{data_folder}/2D_pose.json"
+            if not (keypoints_2d_file.is_file()):
+                continue
+
+            keypoints_3d_file = args.keypoints_3d_root / f"{data_folder}/3D_pose.json"
+            if keypoints_3d_file.is_file():
+                continue
+
+            filtered_data_folders.append(data_folder)
+        data_folders = filtered_data_folders
 
     # Setup the environment
     mp.set_start_method('spawn')
     device = torch.device("cpu") if args.cpu else torch.device("cuda:0")
 
-    parallel_map(data_folders[:200], worker, n_jobs=5, const_args={'joints_2d_root': args.keyponts_2d_root,
-                                                                   'joints_3d_root': args.keyponts_3d_root,
-                                                                   'kinect_data_root': args.kinect_data_path,
-                                                                   'smpl_models_path': args.smpl_models_path,
-                                                                   'smpl_assets_path': args.smpl_assets_path,
-                                                                   'device': device})
+    parallel_map(data_folders, worker, n_jobs=5, const_args={'args': args, 'device': device})
 
 
 if __name__ == "__main__":
@@ -137,8 +163,12 @@ if __name__ == "__main__":
                         help="Number of parallel jobs to run (default: 5)")
 
     # Additional parameters
+    parser.add_argument("--hands", action="store_true",
+                        help="Lift hand keypoints together with body (default: False)")
     parser.add_argument("--cpu", action="store_true",
                         help="Perform computations on cpu (default: False)")
+    parser.add_argument("--force", "-f", action="store_true",
+                        help="Force overwriting existing results (default: False)")
 
     args = parser.parse_args()
     # Convert str to Path for convenience
@@ -149,7 +179,7 @@ if __name__ == "__main__":
     config = load_config(args.config_path)
     args.smpl_models_path = Path(config["SMPL_MODELS_PATH"])
     args.smpl_assets_path = Path(config["SMPL_ASSETS_PATH"])
-    args.keyponts_2d_root = Path(config["KEYPOINTS_2D_ROOT"])
-    args.keyponts_3d_root = Path(config["KEYPOINTS_3D_ROOT"])
+    args.keypoints_2d_root = Path(config["KEYPOINTS_2D_ROOT"])
+    args.keypoints_3d_root = Path(config["KEYPOINTS_3D_ROOT"])
 
     main(args)

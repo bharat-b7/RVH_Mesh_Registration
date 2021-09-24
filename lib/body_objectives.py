@@ -50,9 +50,9 @@ def torch_pose_obj_data(model_root, batch_size=1):
     """
     Keypoint operators on SMPL verts.
     """
-    body25_reg = pkl.load(open(join(model_root, 'assets/body25_regressor.pkl'), 'rb'), encoding="latin1").T
-    face_reg = pkl.load(open(join(model_root, 'assets/face_regressor.pkl'), 'rb'), encoding="latin1").T
-    hand_reg = pkl.load(open(join(model_root, 'assets/hand_regressor.pkl'), 'rb'), encoding="latin1").T
+    body25_reg = pkl.load(open(join(model_root, 'regressors/body_25_openpose_joints.pkl'), 'rb'), encoding="latin1").T
+    face_reg = pkl.load(open(join(model_root, 'regressors/face_70_openpose_joints.pkl'), 'rb'), encoding="latin1").T
+    hand_reg = pkl.load(open(join(model_root, 'regressors/hands_42_openpose_joints.pkl'), 'rb'), encoding="latin1").T
     body25_reg_torch = torch.sparse_coo_tensor(body25_reg.nonzero(), body25_reg.data, body25_reg.shape)
     face_reg_torch = torch.sparse_coo_tensor(face_reg.nonzero(), face_reg.data, face_reg.shape)
     hand_reg_torch = torch.sparse_coo_tensor(hand_reg.nonzero(), hand_reg.data, hand_reg.shape)
@@ -131,6 +131,8 @@ body_keypoints_weights = torch.tensor([
     0.8, 0.8, 0.8,  # left foot
     0.8, 0.8, 0.8  # right foot
 ], dtype=torch.float).reshape((25, 1))
+bodyhand_keypoints_weights = 0.6 * torch.ones((67, 1), dtype=torch.float)
+bodyhand_keypoints_weights[:25, 0] = body_keypoints_weights[:, 0]
 joint_weights = 0.6 * torch.ones((137, 1), dtype=torch.float)  # for all body joints
 joint_weights[:25, 0] = body_keypoints_weights[:, 0]
 
@@ -172,6 +174,8 @@ def batch_reprojection_loss_kinect(img_bodyjoints, smpl_bodyjoints, color_mats, 
     kinect_count = color_mats.shape[0]
     if img_bodyjoints.shape[1] == 25:
         weights = body_keypoints_weights.to(device)
+    elif img_bodyjoints.shape[1] == 67:
+        weights = bodyhand_keypoints_weights.to(device)
     else:
         weights = joint_weights.to(device)
     sum_loss = img_bodyjoints.new_zeros(img_bodyjoints.shape[0])

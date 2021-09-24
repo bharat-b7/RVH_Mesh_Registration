@@ -20,29 +20,51 @@ def load_config(config_path):
     return config
 
 
-def load_joints_2d(joints_2d_file, device="cpu"):
-    if not (joints_2d_file.is_file()):
-        print(f"No joints for {joints_2d_file}")
+def load_keypoints_2d(keypoints_2d_file,device="cpu"):
+    def prepare_keypoints(data_2d, keypoints_num, keypoints_key, device):
+        # returns keypoints reshaped as follows: 1 x N x (3*n_kinects)
+        keypoints = []
+        for key in sorted(data_2d.keys()):
+            keypoints_view = np.array(data_2d[key][keypoints_key], dtype=np.float32)
+            # print(keypoints_view.shape, keypoints_num)
+            if keypoints_view.ndim == 1 or keypoints_view.shape[0] != keypoints_num:
+                keypoints_view = np.zeros((keypoints_num, 3), dtype=np.float32)
+
+            keypoints.append(keypoints_view)
+        # keypoints = [np.array(data_2d[key][keypoints_key][:1], dtype=np.float32) for key in sorted(data_2d.keys())]
+        keypoints = np.squeeze(np.array(keypoints))
+
+        # if keypoints.ndim < 2 or keypoints.shape[1] == 0:
+        #     return None
+
+        # keypoints_num = keypoints.shape[1]
+        keypoints = keypoints[np.newaxis, ...]
+        keypoints = np.swapaxes(keypoints, 1, 2)
+        keypoints = np.reshape(keypoints, (1, keypoints_num, -1))
+
+        keypoints = torch.from_numpy(keypoints).to(device)
+
+        return keypoints
+
+    if not (keypoints_2d_file.is_file()):
+        print(f"No joints for {keypoints_2d_file}")
         return None
 
-    with joints_2d_file.open('r') as fp:
-        joints_2d = json.load(fp)
+    with keypoints_2d_file.open('r') as fp:
+        keypoints_2d = json.load(fp)
 
-    joints_2d = [np.array(joints_2d[key][:1], dtype=np.float32) for key in sorted(joints_2d.keys())]
-    joints_2d = np.squeeze(np.array(joints_2d))
+    # hardcoded sizes of keypoint arrays: body 25, hand 21, face 70
+    body_2d = prepare_keypoints(keypoints_2d, 25, "pose_keypoints_2d", device)
+    if body_2d is None:
+        print(f"Bad joints for {keypoints_2d_file}")
 
-    if joints_2d.ndim < 2:
-        print(f"Bad joints ({joints_2d.shape}) for {joints_2d_file}")
-        return None
+    face_2d = prepare_keypoints(keypoints_2d, 70, "face_keypoints_2d", device)
 
-    joints_num = joints_2d.shape[1]
-    joints_2d = joints_2d[np.newaxis, ...]
-    joints_2d = np.swapaxes(joints_2d, 1, 2)
-    joints_2d = np.reshape(joints_2d, (1, joints_num, -1))
+    hand_l_2d = prepare_keypoints(keypoints_2d, 21, "hand_left_keypoints_2d", device)
 
-    joints_2d = torch.from_numpy(joints_2d).to(device)
+    hand_r_2d = prepare_keypoints(keypoints_2d, 21, "hand_right_keypoints_2d", device)
 
-    return joints_2d
+    return body_2d, face_2d, hand_l_2d, hand_r_2d
 
 
 def load_scan(scan_path: Path, texture_path: Path = None, device: torch.device = "cpu"):

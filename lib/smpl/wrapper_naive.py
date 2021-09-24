@@ -13,20 +13,19 @@ from lib.smpl.smplpytorch.smplpytorch.native.webuser.serialization import backwa
 
 
 class SMPLNaiveWrapper:
-    def __init__(self, model_root, assets_root, gender='neutral'):
+    def __init__(self, model_root, gender='neutral'):
         # self.project_dir = project_dir
         self.model_root = model_root
-        self.assets_root = assets_root
         # experiments name
         # self.exp_name = exp_name
         self.gender = gender
         # self.garment = garment
 
     def get_smpl_file(self):
-        if self.gender == 'neutral':
-            return list(self.model_root.glob("**/basicmodel_neutral_lbs_10_207_0_v1.1.0.pkl"))[0]
+        if self.gender == "neutral":
+            return self.model_root / "models_v1.0.0/models/basicmodel_neutral_lbs_10_207_0_v1.0.0.pkl"
         else:
-            return list(self.model_root.glob(f"**/lrotmin/lbs_tj10smooth6_0fixed_normalized/{self.gender}/model.pkl"))[0]
+            return self.model_root / f"special_models/lrotmin/lbs_tj10smooth6_0fixed_normalized/{self.gender}/model.pkl"
 
     def get_smpl(self):
         smpl_m = load_model(self.get_smpl_file())
@@ -70,7 +69,7 @@ class SMPLNaiveWrapper:
         return smpl_m
 
     def get_vt_ft(self):
-        vt, ft = pkl.load((self.assets_root / "smpl_vt_ft.pkl").open('rb'), encoding='latin-1')
+        vt, ft = pkl.load((self.model_root / "assets" / "smpl_vt_ft.pkl").open("rb"), encoding="latin-1")
         return vt, ft
 
     def get_vt_ft_hres(self):
@@ -79,7 +78,7 @@ class SMPLNaiveWrapper:
         return vt[:, :2], ft
 
     def get_template_file(self):
-        fname = self.assets_root / 'template' /'template.obj'
+        fname = self.model_root / "template" / "template.obj"
         return fname
 
     def get_template(self):
@@ -87,23 +86,23 @@ class SMPLNaiveWrapper:
         return Mesh(filename=self.get_template_file())
 
     def get_faces(self):
-        fname = self.assets_root / 'template' / 'faces.npy'
+        fname = self.model_root / "template" / "faces.npy"
         return np.load(fname)
 
     def get_bmap(self):
-        fname = self.assets_root / 'template' / 'bmap.npy'
+        fname = self.model_root / "template" / "bmap.npy"
         return np.load(fname)
 
     def get_fmap(self):
-        fname = self.assets_root / 'template' / 'fmap.npy'
+        fname = self.model_root / "template" / "fmap.npy"
         return np.load(fname)
 
     def get_bmap_hres(self):
-        fname = self.assets_root / 'template' / 'bmap_hres.npy'
+        fname = self.model_root / "template" / "bmap_hres.npy"
         return np.load(fname)
 
     def get_fmap_hres(self):
-        fname = self.assets_root / 'template' / 'fmap_hres.npy'
+        fname = self.model_root / "template" / "fmap_hres.npy"
         return np.load(fname)
 
     def get_mesh(self, verts):
