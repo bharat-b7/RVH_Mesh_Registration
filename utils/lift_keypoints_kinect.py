@@ -135,7 +135,7 @@ def main(args):
                 continue
 
             keypoints_3d_file = args.keypoints_3d_root / f"{data_folder}/3D_pose.json"
-            if keypoints_3d_file.is_file():
+            if not(args.force) and keypoints_3d_file.is_file():
                 continue
 
             filtered_data_folders.append(data_folder)
