@@ -9,3 +9,6 @@ __pycache__/
 
 # Folder with data
 data
+
+# asstes for running the repo
+asstes/*
