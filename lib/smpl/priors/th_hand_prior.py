@@ -1,5 +1,6 @@
 """
 hand prior for SMPL-H
+Author: Xianghui, 12 January 2022
 """
 import numpy as np
 import torch
@@ -7,21 +8,8 @@ import pickle as pkl
 from os.path import join
 
 
-def grab_prior(lhand_path = '/BS/xxie2020/static00/assets/grab/lh_prior.pkl',
-    rhand_path = '/BS/xxie2020/static00/assets/grab/rh_prior.pkl'):
-    lhand_data = pkl.load(open(lhand_path, 'rb'))
-    rhand_data = pkl.load(open(rhand_path, 'rb'))
-
-    prior = np.concatenate([lhand_data['mean'], rhand_data['mean']], axis=0)
-    lhand_prec = lhand_data['precision']
-    rhand_prec = rhand_data['precision']
-
-    return prior, lhand_prec, rhand_prec
-
-def amass_prior(lhand_path = '/BS/xxie2020/static00/assets/BMLmovi/BMLmovi_blhand_prior.pkl',
-    rhand_path = '/BS/xxie2020/static00/assets/BMLmovi/BMLmovi_brhand_prior.pkl'):
-    lhand_data = pkl.load(open(lhand_path, 'rb'))
-    rhand_data = pkl.load(open(rhand_path, 'rb'))
+def grab_prior(root_path):
+    lhand_data, rhand_data = load_grab_prior(root_path)
 
     prior = np.concatenate([lhand_data['mean'], rhand_data['mean']], axis=0)
     lhand_prec = lhand_data['precision']
@@ -30,36 +18,39 @@ def amass_prior(lhand_path = '/BS/xxie2020/static00/assets/BMLmovi/BMLmovi_blhan
     return prior, lhand_prec, rhand_prec
 
 
-def mean_hand_pose(model_root):
-    # lhand_file = "/BS/XZ_project2/work/Human-Chair-Interaction/pose/datasets/lh_mean.npy",
-    # rhand_file = "/BS/XZ_project2/work/Human-Chair-Interaction/pose/datasets/rh_mean.npy"
-    lhand_file = join(model_root, "lh_mean.npy")
-    rhand_file = join(model_root, "rh_mean.npy")
-    lhand_mean = np.array(np.load(lhand_file))
-    rhand_mean = np.array(np.load(rhand_file))
+def load_grab_prior(root_path):
+    lhand_path = join(root_path, 'grab', 'lh_prior.pkl')
+    rhand_path = join(root_path, 'grab', 'rh_prior.pkl')
+    lhand_data = pkl.load(open(lhand_path, 'rb'))
+    rhand_data = pkl.load(open(rhand_path, 'rb'))
+    return lhand_data, rhand_data
+
+
+def mean_hand_pose(root_path):
+    "mean hand pose computed from grab dataset"
+    lhand_data, rhand_data = load_grab_prior(root_path)
+    lhand_mean = np.array(lhand_data['mean'])
+    rhand_mean = np.array(rhand_data['mean'])
     mean_pose = np.concatenate([lhand_mean, rhand_mean])
     return mean_pose
 
 
 class HandPrior:
     HAND_POSE_NUM=45
-
-    def __init__(self, prefix=66, device='cuda:0', dtype=torch.float,
+    def __init__(self, prior_path,
+                 prefix=66,
+                 device='cuda:0',
+                 dtype=torch.float,
                  type='grab'):
         "prefix is the index from where hand pose starts, 66 for SMPL-H"
         self.prefix = prefix
-        if type == 'mean':
-            hand_pose = mean_hand_pose()
-            self.mean = torch.tensor(hand_pose, dtype=dtype).unsqueeze(axis=0).to(device)
-            self.lhand_prec = None
-            self.rhand_prec = None
-        else:
-            prior, lhand_prec, rhand_prec = grab_prior()
-            # prior, lhand_prec, rhand_prec = amass_prior()  # use AMASS prior
+        if type == 'grab':
+            prior, lhand_prec, rhand_prec = grab_prior(prior_path)
             self.mean = torch.tensor(prior, dtype=dtype).unsqueeze(axis=0).to(device)
             self.lhand_prec = torch.tensor(lhand_prec, dtype=dtype).unsqueeze(axis=0).to(device)
             self.rhand_prec = torch.tensor(rhand_prec, dtype=dtype).unsqueeze(axis=0).to(device)
-
+        else:
+            raise NotImplemented("Only grab hand prior is supported!")
 
     def __call__(self, full_pose):
         "full_pose also include body poses, this function can be used to compute loss"

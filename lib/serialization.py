@@ -20,8 +20,8 @@ import pickle
 import numpy as np
 import chumpy as ch
 from chumpy.ch import MatVecMult
-from lib.verts import verts_core
-from lib.posemapper import posemap
+from .verts import verts_core
+from .posemapper import posemap
 
 def backwards_compatibility_replacements(dd):
     # replacements
