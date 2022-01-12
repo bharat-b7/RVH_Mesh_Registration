@@ -21,10 +21,11 @@ from lib.body_objectives import HAND_VISIBLE
 
 
 class BaseFitter(object):
-    def __init__(self, model_root, save_name='smpl', debug=False):
+    def __init__(self, model_root, device='cuda:0', save_name='smpl', debug=False):
         self.model_root = model_root # root path to the smpl or smplh model
         self.debug = debug
         self.save_name = save_name # suffix of the output file
+        self.device = device
         if debug:
             self.mv = MeshViewer()
 
@@ -76,14 +77,14 @@ class BaseFitter(object):
         """
         sp = SmplPaths(gender=gender)
         smpl_faces = sp.get_faces()
-        th_faces = torch.tensor(smpl_faces.astype('float32'), dtype=torch.long).cuda()
+        th_faces = torch.tensor(smpl_faces.astype('float32'), dtype=torch.long).to(self.device)
         num_betas = 10
         prior = get_prior(self.model_root, gender=gender)
         pose_init = torch.zeros((batch_sz, SMPLH_POSE_PRAMS_NUM))
         hand_mean = mean_hand_pose(self.model_root)
         if pose is None:
             pose_init[:, 3:SMPLH_HANDPOSE_START] = prior.mean
-            hand_init = torch.tensor(hand_mean, dtype=torch.float).cuda()
+            hand_init = torch.tensor(hand_mean, dtype=torch.float).to(self.device)
             pose_init[:, SMPLH_HANDPOSE_START:] = hand_init
         else:
             pose_init[:, :SMPLH_HANDPOSE_START] = pose[:, :SMPLH_HANDPOSE_START]
@@ -94,7 +95,7 @@ class BaseFitter(object):
         betas, pose, trans = beta_init, pose_init, trans_init
         # Init SMPL, pose with mean smpl pose, as in ch.registration
         smpl = SMPLHPyTorchWrapperBatch(self.model_root, batch_sz, betas, pose, trans, faces=th_faces,
-                                        num_betas=num_betas).cuda()
+                                        num_betas=num_betas).to(self.device)
         return smpl
 
     @staticmethod
@@ -203,7 +204,7 @@ class BaseFitter(object):
         return th_pose_3d
 
     @staticmethod
-    def load_scans(scans):
+    def load_scans(scans, device='cuda:0'):
         verts, faces, centers = [], [], []
         for scan in scans:
             print('scan path ...', scan)
@@ -214,7 +215,7 @@ class BaseFitter(object):
                 f = f[0]  # see pytorch3d doc
             verts.append(v)
             faces.append(f)
-        th_scan_meshes = Meshes(verts, faces).to('cuda')
+        th_scan_meshes = Meshes(verts, faces).to(device)
         return th_scan_meshes
 
     def viz_fitting(self, smpl, th_scan_meshes, ind=0,

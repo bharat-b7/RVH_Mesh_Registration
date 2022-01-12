@@ -103,7 +103,7 @@ class SMPLHFitter(BaseFitter):
 
     def optimize_pose_only(self, th_scan_meshes, smpl, iterations,
                            steps_per_iter, th_pose_3d, prior_weight=None):
-        split_smpl = SMPLHPyTorchWrapperBatchSplitParams.from_smplh(smpl).cuda()
+        split_smpl = SMPLHPyTorchWrapperBatchSplitParams.from_smplh(smpl).to(self.device)
         optimizer = torch.optim.Adam([split_smpl.trans, split_smpl.top_betas, split_smpl.global_pose], 0.02,
                                      betas=(0.9, 0.999))
 

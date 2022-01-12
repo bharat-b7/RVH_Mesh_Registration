@@ -15,8 +15,8 @@ from smpl_registration.fit_SMPLH import SMPLHFitter
 
 
 class SMPLDFitter(SMPLHFitter):
-    def __init__(self, model_root, save_name='smpld', debug=False):
-        super(SMPLDFitter, self).__init__(model_root, save_name, debug)
+    def __init__(self, model_root, device='cuda:0', save_name='smpld', debug=False):
+        super(SMPLDFitter, self).__init__(model_root, device, save_name, debug)
 
     def fit(self, scans, pose_files, smpl_pkl, gender='male', save_path=None):
         if smpl_pkl is None or smpl_pkl[0] is None:
