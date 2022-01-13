@@ -9,13 +9,14 @@ import numpy as np
 from psbody.mesh import Mesh
 from os.path import join
 import pickle as pkl
-from lib.serialization import backwards_compatibility_replacements, load_model
-from lib.geometry import get_hres
+# from .serialization import backwards_compatibility_replacements, load_model
+from .smpl.smplpytorch.smplpytorch.native.webuser.serialization import backwards_compatibility_replacements, load_model
+from .geometry import get_hres
 import scipy.sparse as sp
 import yaml
 
-with open(r'config.yaml') as file:
-    ROOT = yaml.load(file, Loader=yaml.FullLoader)['SMPL_MODELS_PATH']
+with open(join(os.getcwd(), 'config.yml'), 'r') as file:
+    ROOT = yaml.load(file, Loader=yaml.FullLoader)['SMPLH_MODELS_PATH']
 
 ## Set your paths here
 # ROOT = '/BS/xxie2020/static00/mysmpl/'

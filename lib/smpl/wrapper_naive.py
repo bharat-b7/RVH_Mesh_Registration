@@ -4,10 +4,9 @@ Author: Bharat
 """
 
 import pickle as pkl
-
 import numpy as np
 import scipy.sparse as sp
-
+from os.path import join
 from lib.geometry import get_hres
 from lib.smpl.smplpytorch.smplpytorch.native.webuser.serialization import backwards_compatibility_replacements, load_model
 
@@ -23,9 +22,9 @@ class SMPLNaiveWrapper:
 
     def get_smpl_file(self):
         if self.gender == "neutral":
-            return self.model_root / "models_v1.0.0/models/basicmodel_neutral_lbs_10_207_0_v1.0.0.pkl"
+            return join(self.model_root, "models_v1.0.0/models/basicmodel_neutral_lbs_10_207_0_v1.0.0.pkl")
         else:
-            return self.model_root / f"special_models/lrotmin/lbs_tj10smooth6_0fixed_normalized/{self.gender}/model.pkl"
+            return join(self.model_root, f"special_models/lrotmin/lbs_tj10smooth6_0fixed_normalized/{self.gender}/model.pkl")
 
     def get_smpl(self):
         smpl_m = load_model(self.get_smpl_file())
