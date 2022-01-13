@@ -120,22 +120,21 @@ def main(args):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='Run Model')
-    # parser.add_argument('scan_path', type=str)
-    # parser.add_argument('pose_file', type=str)
-    # parser.add_argument('pose_init', type=str, help='init smpl pose, if exist')
-    # parser.add_argument('save_path', type=str) # save path for all scans
-    # parser.add_argument('-gender', type=str, default='male') # can be female
+    parser.add_argument('scan_path', type=str, help='path to the 3d scans')
+    parser.add_argument('pose_file', type=str, help='3d body joints file')
+    parser.add_argument('save_path', type=str, help='save path for all scans')
+    parser.add_argument('-gender', type=str, default='male') # can be female
     parser.add_argument('-smpl_pkl', type=str, default=None)  # In case SMPL fit is already available
-    # parser.add_argument('--display', default=False, action='store_true')
+    parser.add_argument('--display', default=False, action='store_true')
     parser.add_argument('-mr', '--model_root', default="/BS/xxie2020/static00/mysmpl/smplh")
     args = parser.parse_args()
 
     # args = lambda: None
-    args.scan_path = '/BS/bharat-2/static00/renderings/renderpeople/rp_alison_posed_017_30k/rp_alison_posed_017_30k.obj'
-    args.pose_file = '/BS/bharat-2/static00/renderings/renderpeople/rp_alison_posed_017_30k/pose3d/rp_alison_posed_017_30k.json'
-    args.display = True
-    args.save_path = '/BS/xxie-2/work/MPI_MeshRegistration/test_data'
-    args.gender = 'female'
-    args.smpl_pkl = '/BS/xxie-2/work/MPI_MeshRegistration/test_data/rp_alison_posed_017_30k_smpl.pkl'
+    # args.scan_path = '/BS/bharat-2/static00/renderings/renderpeople/rp_alison_posed_017_30k/rp_alison_posed_017_30k.obj'
+    # args.pose_file = '/BS/bharat-2/static00/renderings/renderpeople/rp_alison_posed_017_30k/pose3d/rp_alison_posed_017_30k.json'
+    # args.display = True
+    # args.save_path = '/BS/xxie-2/work/MPI_MeshRegistration/test_data'
+    # args.gender = 'female'
+    # args.smpl_pkl = '/BS/xxie-2/work/MPI_MeshRegistration/test_data/rp_alison_posed_017_30k_smpl.pkl'
 
     main(args)

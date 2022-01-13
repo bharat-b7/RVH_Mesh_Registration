@@ -189,3 +189,21 @@ def batch_get_pose_obj(th_pose_3d, smpl, init_pose=False):
                 (((hands - hands_observed[:, :, :3]) * hands_observed[:, :, 3].unsqueeze(-1)) ** 2).mean()).unsqueeze(
             0) / 3
         # return (((J - J_observed[:, :, :3]) *J_observed[:, :, 3].unsqueeze(-1))**2).mean().unsqueeze(0)   #only joints
+
+
+def batch_3djoints_loss(pc_bodyjoints, smpl_bodyjoints):
+    """
+    mse loss between lifted 3d keyjoints in pc and SMPL body joints, weighted
+
+    pc_bodyjoints: (B, N, 4), the forth column is prediction score
+    smpl_bodyjoints: (B, N, 3)
+    """
+    if pc_bodyjoints.shape[1]==25:
+        weights = body_keypoints_weights
+    else:
+        weights = joint_weights
+    weights = weights.to(pc_bodyjoints.device)
+    loss = mse_loss(pc_bodyjoints[:, :, :3], smpl_bodyjoints, reduction='none')
+    mse_sum = torch.sum(loss, axis=-1)*pc_bodyjoints[:,:, 3]
+    mse_weighted = torch.matmul(mse_sum, weights)
+    return torch.mean(mse_weighted)

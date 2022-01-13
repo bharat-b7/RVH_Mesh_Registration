@@ -80,6 +80,39 @@ def chamfer_distance(s1, s2, w1=1., w2=1.):
     return (closest_dist_in_s2.dists**0.5 * w1).mean(axis=1).squeeze(-1) + (closest_dist_in_s1.dists**0.5 * w2).mean(axis=1).squeeze(-1)
 
 
+def batch_chamfer(pc_list, verts, reduction='mean', reverse=False, bidirectional=False):
+    """
+    simple implementation to batchify pc with different number of points
+    verts: (B, N, 3) tensor, where len(pc_list) == B
+    pc_list: a list of point clouds with varying number of points. the mean is weighted by the number of points in each point cloud
+    if reverse: compute chamfer from pc to verts
+    default direction: verts to kinect pc
+    """
+    from chamferdist import ChamferDistance
+    assert len(pc_list) == verts.shape[0], 'the size of pc list does not match verts batch size'
+    batch_size = verts.shape[0]
+    chamferDist = ChamferDistance()
+    distances = []
+    points_num = []
+    for i, pc in enumerate(pc_list):
+        if reverse:
+            chamf = chamferDist(pc.unsqueeze(0), verts[i].unsqueeze(0), bidirectional=bidirectional)  # unidirection: pc to SMPL
+        else:
+            chamf = chamferDist(verts[i].unsqueeze(0), pc.unsqueeze(0), bidirectional=bidirectional) # unidirection: SMPL to pc
+        distances.append(chamf)
+        points_num.append(pc.shape[0])
+    points_num = torch.tensor(points_num, device=verts.device, dtype=verts.dtype)
+    distances = torch.stack(distances).reshape((batch_size, 1))
+    if reduction == 'mean':
+        total_num = torch.sum(points_num)
+        weights = points_num.reshape((1, batch_size)) / total_num
+        return torch.mean(torch.matmul(weights, distances))
+    elif reduction == None:
+        return distances
+    else:
+        raise NotImplemented
+
+
 def get_closest_face(points, meshes):
     """
     NOT WORKING

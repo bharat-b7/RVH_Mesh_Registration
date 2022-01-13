@@ -322,8 +322,9 @@ class SMPLHPyTorchWrapperBatchSplitParams(Module):
         batch_sz = smpl.pose.shape[0]
         split_smpl = SMPLHPyTorchWrapperBatchSplitParams(smpl.model_root,
                                                          batch_sz,
+                                                         trans=smpl.trans.data,
                                                          top_betas=smpl.betas.data[:, :TOP_BETA_NUM],
-                                                          other_betas=smpl.betas.data[:, TOP_BETA_NUM:],
+                                                         other_betas=smpl.betas.data[:, TOP_BETA_NUM:],
                                                           global_pose=smpl.pose.data[:, :GLOBAL_POSE_NUM],
                                                           body_pose=smpl.pose.data[:, GLOBAL_POSE_NUM:GLOBAL_POSE_NUM+BODY_POSE_NUM],
                                                           hand_pose=smpl.pose.data[:, GLOBAL_POSE_NUM+BODY_POSE_NUM:],
