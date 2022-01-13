@@ -65,12 +65,13 @@ class BaseFitter(object):
         """
         raise NotImplemented
 
-    def init_smpl(self, batch_sz, gender, pose=None, betas=None, trans=None):
+    def init_smpl(self, batch_sz, gender, pose=None, betas=None, trans=None, flip=False):
         """
         initialize a smpl batch model
         Args:
             batch_sz:
             gender:
+            flip: rotate smpl around z-axis by 180 degree
 
         Returns: batch smplh model
 
@@ -86,6 +87,8 @@ class BaseFitter(object):
             pose_init[:, 3:SMPLH_HANDPOSE_START] = prior.mean
             hand_init = torch.tensor(hand_mean, dtype=torch.float).to(self.device)
             pose_init[:, SMPLH_HANDPOSE_START:] = hand_init
+            if flip:
+                pose_init[:, 2] = np.pi
         else:
             pose_init[:, :SMPLH_HANDPOSE_START] = pose[:, :SMPLH_HANDPOSE_START]
             if pose.shape[1] == SMPLH_POSE_PRAMS_NUM:
@@ -136,8 +139,21 @@ class BaseFitter(object):
         return loss_weight
 
     def save_outputs(self, save_path, scan_paths, smpl, th_scan_meshes, save_name='smpl'):
+        th_smpl_meshes = self.smpl2meshes(smpl)
+        mesh_paths, names = self.get_mesh_paths(save_name, save_path, scan_paths)
+        self.save_meshes(th_smpl_meshes, mesh_paths)
+        self.save_meshes(th_scan_meshes, [join(save_path, n) for n in names])
+        # Save params
+        self.save_smpl_params(names, save_path, smpl, save_name)
+        return smpl.pose.cpu().detach().numpy(), smpl.betas.cpu().detach().numpy(), smpl.trans.cpu().detach().numpy()
+
+    def smpl2meshes(self, smpl):
+        "convert smpl batch to pytorch3d meshes"
         verts, _, _, _ = smpl()
         th_smpl_meshes = Meshes(verts=verts, faces=torch.stack([smpl.faces] * len(verts), dim=0))
+        return th_smpl_meshes
+
+    def get_mesh_paths(self, save_name, save_path, scan_paths):
         names = [split(s)[1] for s in scan_paths]
         # Save meshes
         mesh_paths = []
@@ -146,11 +162,7 @@ class BaseFitter(object):
                 mesh_paths.append(join(save_path, n.replace('.obj', f'_{save_name}.ply')))
             else:
                 mesh_paths.append(join(save_path, n.replace('.ply', f'_{save_name}.ply')))
-        self.save_meshes(th_smpl_meshes, mesh_paths)
-        self.save_meshes(th_scan_meshes, [join(save_path, n) for n in names])
-        # Save params
-        self.save_smpl_params(names, save_path, smpl, save_name)
-        return smpl.pose.cpu().detach().numpy(), smpl.betas.cpu().detach().numpy(), smpl.trans.cpu().detach().numpy()
+        return mesh_paths, names
 
     def save_smpl_params(self, names, save_path, smpl, save_name):
         for p, b, t, n in zip(smpl.pose.cpu().detach().numpy(), smpl.betas.cpu().detach().numpy(),
@@ -225,3 +237,12 @@ class BaseFitter(object):
         scan_mesh = Mesh(v=th_scan_meshes.verts_list()[ind].cpu().detach().numpy(),
                          f=th_scan_meshes.faces_list()[ind].cpu().numpy(), vc=smpl_vc)
         self.mv.set_static_meshes([scan_mesh, smpl_mesh])
+
+    def copy_smpl_params(self, split_smpl, smpl):
+        smpl.pose.data[:, :3] = split_smpl.global_pose.data
+        smpl.pose.data[:, 3:66] = split_smpl.body_pose.data
+        smpl.pose.data[:, 66:] = split_smpl.hand_pose.data
+        smpl.betas.data[:, :2] = split_smpl.top_betas.data
+        smpl.betas.data[:, 2:] = split_smpl.other_betas.data
+
+        smpl.trans.data = split_smpl.trans.data
