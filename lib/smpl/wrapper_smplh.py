@@ -176,7 +176,7 @@ class SMPLHPyTorchWrapperBatch(Module):
             self.betas = nn.Parameter(torch.zeros(batch_sz, num_betas))
         else:
             assert betas.ndim == 2
-            self.betas = nn.Parameter(torch.tensor(betas))
+            self.betas = nn.Parameter(torch.tensor(betas.clone().detach()))
         if pose is None:
             self.pose = nn.Parameter(torch.zeros(batch_sz, SMPLH_POSE_PRAMS_NUM))
         else:

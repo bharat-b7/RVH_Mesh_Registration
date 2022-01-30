@@ -5,6 +5,7 @@ This module contains scripts that can fit SMPLH or SMPLH+D models to 3D scans or
 2. [Fit SMPLH to scans](#fit-smplh)
 3. [Fit SMPLH+D to scans](#fit-smplh+d)
 4. [Fit SMPLH to point clouds](#fit-smplh-pc)
+5. [Fit SMPLH+D to point clouds using IP-Net](#fit-smplh-pc-ipnet)
 
 ### <a name="smplh-files"></a> Organizing SMPLH model files 
 smplh model file structure: 
@@ -39,5 +40,13 @@ The fitting procedure is very similar to scan fitting. But Kinect point clouds a
 Run fitting:
 ```
 python smpl_registration/fit_SMPLH_pcloud.py [pc_path] [j3d_file] [pose_init] [save_path] 
+[-gender male/female/neutral] [-mr root path to SMPLH model]
+```
+
+### <a name="fit-smplh-pc-ipnet"></a> Fit SMPLH+D model to scans using IP-Net 
+This fitting is based on the [IP-Net project](#https://github.com/bharat-b7/IPNet). You can download the pretrained IP-Net model [here](#https://datasets.d2.mpi-inf.mpg.de/IPNet2020/IPNet_p5000_01_exp_id01.zip). The SMPLH model structure is the same as before.
+Run fitting:
+```
+python smpl_registration/fit_SMPLH_IPNet.py [pc_path] [checkpoint path] [save path] 
 [-gender male/female/neutral] [-mr root path to SMPLH model]
 ```
