@@ -231,12 +231,12 @@ class BaseFitter(object):
         return th_scan_meshes
 
     def viz_fitting(self, smpl, th_scan_meshes, ind=0,
-                    smpl_vc=np.array([0, 1, 0])):
+                    smpl_vc=np.array([0, 1, 0]), **kwargs):
         verts, _, _, _ = smpl()
         smpl_mesh = Mesh(v=verts[ind].cpu().detach().numpy(), f=smpl.faces.cpu().numpy())
         scan_mesh = Mesh(v=th_scan_meshes.verts_list()[ind].cpu().detach().numpy(),
                          f=th_scan_meshes.faces_list()[ind].cpu().numpy(), vc=smpl_vc)
-        self.mv.set_static_meshes([scan_mesh, smpl_mesh])
+        self.mv.set_dynamic_meshes([scan_mesh, smpl_mesh])
 
     def copy_smpl_params(self, split_smpl, smpl):
         smpl.pose.data[:, :3] = split_smpl.global_pose.data

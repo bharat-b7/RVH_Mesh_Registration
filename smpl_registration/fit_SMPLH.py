@@ -143,12 +143,15 @@ class SMPLHFitter(BaseFitter):
                 if self.debug:
                     self.viz_fitting(split_smpl, th_scan_meshes)
 
+        self.copy_smpl_params(smpl, split_smpl)
+
+        print('** Optimised smpl pose **')
+
+    def copy_smpl_params(self, smpl, split_smpl):
         # Put back pose, shape and trans into original smpl
         smpl.pose.data = split_smpl.pose.data
         smpl.betas.data = split_smpl.betas.data
         smpl.trans.data = split_smpl.trans.data
-
-        print('** Optimised smpl pose **')
 
     def forward_step_pose_only(self, smpl, th_pose_3d, prior_weight):
         """
