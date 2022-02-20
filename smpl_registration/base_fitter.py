@@ -14,7 +14,7 @@ import json
 from psbody.mesh import MeshViewer, Mesh
 from lib.smpl.priors.th_hand_prior import mean_hand_pose
 from lib.smpl.priors.th_smpl_prior import get_prior
-from lib.smpl_paths import SmplPaths
+# from lib.smpl_paths import SmplPaths
 from lib.smpl.wrapper_smplh import SMPLHPyTorchWrapperBatch
 from lib.smpl.const import *
 from lib.body_objectives import HAND_VISIBLE
@@ -76,9 +76,9 @@ class BaseFitter(object):
         Returns: batch smplh model
 
         """
-        sp = SmplPaths(gender=gender)
-        smpl_faces = sp.get_faces()
-        th_faces = torch.tensor(smpl_faces.astype('float32'), dtype=torch.long).to(self.device)
+        # sp = SmplPaths(gender=gender)
+        # smpl_faces = sp.get_faces()
+        # th_faces = torch.tensor(smpl_faces.astype('float32'), dtype=torch.long).to(self.device)
         num_betas = 10
         prior = get_prior(self.model_root, gender=gender)
         pose_init = torch.zeros((batch_sz, SMPLH_POSE_PRAMS_NUM))
@@ -97,8 +97,8 @@ class BaseFitter(object):
         trans_init = torch.zeros((batch_sz, 3)) if trans is None else trans
         betas, pose, trans = beta_init, pose_init, trans_init
         # Init SMPL, pose with mean smpl pose, as in ch.registration
-        smpl = SMPLHPyTorchWrapperBatch(self.model_root, batch_sz, betas, pose, trans, faces=th_faces,
-                                        num_betas=num_betas).to(self.device)
+        smpl = SMPLHPyTorchWrapperBatch(self.model_root, batch_sz, betas, pose, trans,
+                                        num_betas=num_betas, device=self.device, gender=gender).to(self.device)
         return smpl
 
     @staticmethod

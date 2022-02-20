@@ -265,7 +265,7 @@ class SMPLHIPNetFitter(SMPLDFitter):
         verts, faces = [], []
         for m in meshes:
             verts.append(torch.from_numpy(m.v).float())
-            faces.append(torch.from_numpy(m.f))
+            faces.append(torch.from_numpy(m.f.astype(int)))
         py3d_mesh = Meshes(verts, faces).to(device)
         return py3d_mesh
 
@@ -304,9 +304,9 @@ if __name__ == "__main__":
     parser.add_argument('-batch_points', default=10000, type=int)
     args = parser.parse_args()
 
-    args.scan_path = 'assets/scan.obj'
-    args.weights = '/BS/xxie2020/work/hoi3d/external/IPNet/experiments/IPNet_p5000_01_exp_id01/checkpoints/checkpoint_epoch_249.tar'
-    args.save_path = 'test_data'
+    # args.scan_path = 'assets/scan.obj'
+    # args.weights = '/BS/xxie2020/work/hoi3d/external/IPNet/experiments/IPNet_p5000_01_exp_id01/checkpoints/checkpoint_epoch_249.tar'
+    # args.save_path = 'test_data'
     # args.res = 128
     # args.decoder_hidden_dim = 256
     # args.retrieval_res = 256
