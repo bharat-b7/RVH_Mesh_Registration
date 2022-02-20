@@ -19,8 +19,8 @@ def grab_prior(root_path):
 
 
 def load_grab_prior(root_path):
-    lhand_path = join(root_path, 'grab', 'lh_prior.pkl')
-    rhand_path = join(root_path, 'grab', 'rh_prior.pkl')
+    lhand_path = join(root_path, 'priors', 'lh_prior.pkl')
+    rhand_path = join(root_path, 'priors', 'rh_prior.pkl')
     lhand_data = pkl.load(open(lhand_path, 'rb'))
     rhand_data = pkl.load(open(rhand_path, 'rb'))
     return lhand_data, rhand_data

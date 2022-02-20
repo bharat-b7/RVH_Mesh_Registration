@@ -24,22 +24,23 @@ class SMPLHPyTorchWrapper(Module):
     __constants__ = ['kintree_parents', 'gender', 'center_idx', 'num_joints']
     def __init__(self,
                  model_root="/BS/xxie2020/static00/mysmpl/smplh",
-                 gender='neutral',
+                 gender='male',
                  num_betas=10):
         """
         Args:
             model_root: path to pkl files for the model
-            gender: 'neutral' (default) or 'female' or 'male'
+            gender: 'female' or 'male'
         """
         super(SMPLHPyTorchWrapper, self).__init__()
 
         self.gender = gender
-        if gender == 'neutral':
-            self.model_path = join(model_root, 'SMPLH_neutral.pkl')
-        elif gender == 'female':
+        if gender == 'female':
             self.model_path = join(model_root, 'SMPLH_female.pkl')
         elif gender == 'male':
             self.model_path = join(model_root, 'SMPLH_male.pkl')
+        else:
+            print('SMPL-H does not support gender type: {}'.format(gender))
+            raise NotImplementedError
 
         smpl_data = ready_arguments(self.model_path)
         self.smpl_data = smpl_data
@@ -168,7 +169,8 @@ class SMPLHPyTorchWrapperBatch(Module):
     def __init__(self, model_root, batch_sz, betas=None,
                  pose=None, trans=None,
                  offsets=None, faces=None,
-                 gender='male', num_betas=10):
+                 gender='male', num_betas=10,
+                 device='cuda:0'):
         super(SMPLHPyTorchWrapperBatch, self).__init__()
         self.model_root = model_root
 
@@ -193,9 +195,10 @@ class SMPLHPyTorchWrapperBatch(Module):
             assert offsets.ndim == 3
             self.offsets = nn.Parameter(torch.tensor(offsets))
 
-        self.faces = faces
+        # self.faces = faces
         self.gender = gender
         self.smpl = SMPLHPyTorchWrapper(self.model_root, gender=gender, num_betas=num_betas)
+        self.faces = self.smpl.th_faces.to(device)
 
         # Landmarks, same as SMPL
         self.body25_reg_torch, self.face_reg_torch, self.hand_reg_torch = JointRegressor.load_regressors(self.model_root,

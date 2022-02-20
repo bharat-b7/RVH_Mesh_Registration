@@ -5,14 +5,14 @@ else:
     Author: Anonymous
 """
 import pickle as pkl
-
+from os.path import join
 import torch
 import numpy as np
 
 
 def get_prior(model_root, gender='male', precomputed=True, device="cuda:0"):
     if precomputed:
-        prior = Prior(sm=None)
+        prior = Prior(sm=None, model_root=model_root)
         return prior['Generic']
     else:
         from lib.smpl.wrapper_naive import SMPLNaiveWrapper
@@ -45,7 +45,7 @@ class ThMahalanobis(object):
         
 
 class Prior(object):
-    def __init__(self, sm, prefix=3, end=66, device="cuda:0"):
+    def __init__(self, sm, model_root=None, prefix=3, end=66, device="cuda:0"):
         "end=66 for smplh, 69 for smpl"
         self.prefix = prefix
         self.device = device
@@ -59,7 +59,8 @@ class Prior(object):
             self.priors = {'Generic': self.create_prior_from_samples(all_samples)}
         else:
             # Load pre-computed mean and variance, this prior is adapted for smplh model
-            dat = pkl.load(open('assets/pose_prior.pkl', 'rb'))
+            file = join(model_root, 'priors', 'body_prior.pkl')
+            dat = pkl.load(open(file, 'rb'))
             self.priors = {'Generic': ThMahalanobis(dat['mean'],
                                                     dat['precision'],
                                                     self.prefix,

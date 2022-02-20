@@ -35,7 +35,7 @@ class SMPLHFitter(BaseFitter):
         th_scan_meshes = self.load_scans(scans)
 
         # Set optimization hyper parameters
-        iterations, pose_iterations, steps_per_iter, pose_steps_per_iter = 3, 2, 30, 30
+        iterations, pose_iterations, steps_per_iter, pose_steps_per_iter = 5, 2, 30, 30
 
         th_pose_3d = None
         if pose_files is not None:
@@ -168,6 +168,19 @@ class SMPLHFitter(BaseFitter):
         loss['pose_obj'] = batch_get_pose_obj(th_pose_3d, smpl, init_pose=False)
         return loss
 
+    def get_loss_weights(self):
+        """Set loss weights"""
+        loss_weight = {'s2m': lambda cst, it: 10. ** 2 * cst * (1 + it),
+                       'm2s': lambda cst, it: 10. ** 2 * cst / (1 + it),
+                       'betas': lambda cst, it: 10. ** 0 * cst / (1 + it),
+                       'offsets': lambda cst, it: 10. ** -1 * cst / (1 + it),
+                       'pose_pr': lambda cst, it: 10. ** -5 * cst / (1 + it),
+                       'hand': lambda cst, it: 10. ** -5 * cst / (1 + it),
+                       'lap': lambda cst, it: cst / (1 + it),
+                       'pose_obj': lambda cst, it: 25. ** 2 * cst / (1 + it)
+                       }
+        return loss_weight
+
 
 def main(args):
     fitter = SMPLHFitter(args.model_root, debug=args.display)
@@ -177,19 +190,19 @@ def main(args):
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='Run Model')
-    parser.add_argument('scan_path', type=str, help='path to the 3d scans')
-    parser.add_argument('pose_file', type=str, help='3d body joints file')
-    parser.add_argument('save_path', type=str, help='save path for all scans')
-    parser.add_argument('-gender', type=str, default='male')  # can be female
+    # parser.add_argument('scan_path', type=str, help='path to the 3d scans')
+    # parser.add_argument('pose_file', type=str, help='3d body joints file')
+    # parser.add_argument('save_path', type=str, help='save path for all scans')
+    parser.add_argument('-gender', type=str, default='female')  # can be female
     parser.add_argument('--display', default=False, action='store_true')
     parser.add_argument('-mr', '--model_root', default="/BS/xxie2020/static00/mysmpl/smplh")
     args = parser.parse_args()
 
     # args = lambda: None
-    # args.scan_path = '/BS/bharat-2/static00/renderings/renderpeople/rp_alison_posed_017_30k/rp_alison_posed_017_30k.obj'
-    # args.pose_file = '/BS/bharat-2/static00/renderings/renderpeople/rp_alison_posed_017_30k/pose3d/rp_alison_posed_017_30k.json'
-    # args.display = True
-    # args.save_path = '/BS/xxie-2/work/MPI_MeshRegistration/test_data'
-    # args.gender = 'female'
+    args.scan_path = '/BS/bharat-2/static00/renderings/renderpeople/rp_alison_posed_017_30k/rp_alison_posed_017_30k.obj'
+    args.pose_file = '/BS/bharat-2/static00/renderings/renderpeople/rp_alison_posed_017_30k/pose3d/rp_alison_posed_017_30k.json'
+    args.display = True
+    args.save_path = '/BS/xxie-2/work/MPI_MeshRegistration/test_data'
+    args.gender = 'female'
 
     main(args)
