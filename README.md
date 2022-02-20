@@ -49,7 +49,7 @@ python smpl_registration/fit_SMPLH_pcloud.py [pc_path] [j3d_file] [pose_init] [s
 ```
 
 ### <a name="fit-smplh-pc-ipnet"></a> Fit SMPLH+D model to scans using IP-Net 
-This fitting is based on the [IP-Net project](#https://github.com/bharat-b7/IPNet). You can download the pretrained IP-Net model [here](#https://datasets.d2.mpi-inf.mpg.de/IPNet2020/IPNet_p5000_01_exp_id01.zip). The SMPLH model structure is the same as before.
+This fitting is based on the [IP-Net project](https://github.com/bharat-b7/IPNet). You can download the pretrained IP-Net model [here](https://datasets.d2.mpi-inf.mpg.de/IPNet2020/IPNet_p5000_01_exp_id01.zip). The SMPLH model structure is the same as before.
 Run fitting:
 ```
 python smpl_registration/fit_SMPLH_IPNet.py [pc_path] [checkpoint path] [save path] 
