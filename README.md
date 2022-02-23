@@ -56,7 +56,7 @@ python smpl_registration/fit_SMPLH_IPNet.py [pc_path] [checkpoint path] [save pa
 [-gender male/female] [-mr root path to SMPLH model]
 ```
 
-Cite us:
+## Cite us:
 ```
 @inproceedings{bhatnagar2020ipnet,
     title = {Combining Implicit Function Learning and Parametric Models for 3D Human Reconstruction},
@@ -70,7 +70,7 @@ Cite us:
 
 ## License
 
-Copyright (c) 2020 Bharat Lal Bhatnagar, Max-Planck-Gesellschaft
+Copyright (c) 2022 Bharat Lal Bhatnagar, Max-Planck-Gesellschaft
 
 **Please read carefully the following terms and conditions and any accompanying documentation before you download and/or use this software and associated documentation files (the "Software").**
 
