@@ -1,14 +1,8 @@
 import json
-from pathlib import Path
 
-import cv2
 import torch
 import yaml
 import numpy as np
-from pytorch3d import io
-from pytorch3d.structures import Meshes
-from pytorch3d.renderer import TexturesUV
-
 
 def load_config(config_path):
     with open(config_path, 'r') as fp:
@@ -65,41 +59,6 @@ def load_keypoints_2d(keypoints_2d_file,device="cpu"):
     hand_r_2d = prepare_keypoints(keypoints_2d, 21, "hand_right_keypoints_2d", device)
 
     return body_2d, face_2d, hand_l_2d, hand_r_2d
-
-
-def load_scan(scan_path: Path, texture_path: Path = None, device: torch.device = "cpu"):
-    # Load mesh based on file extension
-    suffix = scan_path.suffix
-    if suffix == '.obj':
-        verts, faces, aux = io.load_obj(scan_path)
-
-        texture = None
-        if texture_path is not None:
-            if texture_path.is_file():
-                # Load image
-                texture_image = cv2.imread(str(texture_path))
-                # It's important to convert image to float
-                texture_image = torch.from_numpy(texture_image.astype(np.float32) / 255)
-
-                # Extract representation needed to create Textures object
-                verts_uvs = aux.verts_uvs[None, ...]  # (1, V, 2)
-                faces_uvs = faces.textures_idx[None, ...]  # (1, F, 3)
-                texture_image = texture_image[None, ...]  # (1, H, W, 3)
-
-                texture = TexturesUV(verts_uvs=verts_uvs, faces_uvs=faces_uvs, maps=texture_image)
-            else:
-                Warning("No texture file found for provided .obj scan")
-
-        # Initialise the mesh
-        mesh = Meshes(verts=[verts], faces=[faces.verts_idx], textures=texture).to(device)
-    elif suffix == '.ply':
-        # Ilya: this part wasn't tested properly
-        reader = io.IO()
-        mesh = reader.load_mesh(scan_path, device=device)
-    else:
-        raise RuntimeError(f"Unknown scan format {suffix}")
-
-    return mesh
 
 
 def load_kinect_exrtinsics(extrinsic_folder, device="cpu"):
