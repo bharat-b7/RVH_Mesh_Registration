@@ -1,14 +1,26 @@
 ## Registering SMPL to scans, kinect point clouds
 This module contains scripts that can fit SMPLH or SMPLH+D models to 3D scans or point clouds captured by Kinects.
 
+1. [Organizing SMPL model files](#smpl-files)
 1. [Organizing SMPLH model files](#smplh-files)
-2. [Fit SMPLH to scans](#fit-smplh)
-3. [Fit SMPLH+D to scans](#fit-smplh+d)
-4. [Fit SMPLH to point clouds](#fit-smplh-pc)
-5. [Fit SMPLH+D to point clouds using IP-Net](#fit-smplh-pc-ipnet)
+1. [Fit SMPLH to scans](#fit-smplh)
+1. [Fit SMPLH+D to scans](#fit-smplh+d)
+1. [Fit SMPLH to point clouds](#fit-smplh-pc)
+1. [Fit SMPLH+D to point clouds using IP-Net](#fit-smplh-pc-ipnet)
 
-### <a name="smplh-files"></a> Organizing SMPLH model files 
-smplh model file structure: 
+### <a name="smpl-files"></a> Organizing SMPL model files
+```
+|model root
+|--SMPL_male.pkl
+|--SMPL_female.pkl
+|--SMPL_neutral.pkl
+|--priors
+|----body_prior.pkl 
+|--regressors
+|----body_25_openpose_joints.pkl
+```
+
+### <a name="smplh-files"></a> Organizing SMPLH model files  
 ```
 |model root
 |--grab             # folder containing hand priors computed from grab dataset

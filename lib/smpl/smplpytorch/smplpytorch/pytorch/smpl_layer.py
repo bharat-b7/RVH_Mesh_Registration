@@ -36,13 +36,14 @@ class SMPL_Layer(Module):
         self.model_root = model_root
         self.model_folder = os.path.join(model_root, "models_v1.0.0/models")
 
-        if gender == 'neutral':
-            self.model_path = os.path.join(self.model_folder, 'basicmodel_neutral_lbs_10_207_0_v1.0.0.pkl')
-        elif gender == 'female':
-            self.model_path = os.path.join(self.model_folder, 'basicmodel_f_lbs_10_207_0_v1.0.0.pkl')
-            # self.model_path = os.path.join(model_root, 'female_model.pkl')
-        elif gender == 'male':
-            self.model_path = os.path.join(self.model_folder, 'basicmodel_m_lbs_10_207_0_v1.0.0.pkl')
+        self.model_path = os.path.join(model_root, f"SMPL_{self.gender}.pkl")
+        # if gender == 'neutral':
+        #     self.model_path = os.path.join(self.model_folder, 'basicmodel_neutral_lbs_10_207_0_v1.0.0.pkl')
+        # elif gender == 'female':
+        #     self.model_path = os.path.join(self.model_folder, 'basicmodel_f_lbs_10_207_0_v1.0.0.pkl')
+        #     # self.model_path = os.path.join(model_root, 'female_model.pkl')
+        # elif gender == 'male':
+        #     self.model_path = os.path.join(self.model_folder, 'basicmodel_m_lbs_10_207_0_v1.0.0.pkl')
             # self.model_path = os.path.join(model_root, 'male_model.pkl')
 
         smpl_data = ready_arguments(self.model_path)

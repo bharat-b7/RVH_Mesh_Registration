@@ -10,10 +10,7 @@ from pathlib import Path
 
 import cv2
 import torch
-import trimesh
 import numpy as np
-from pytorch3d import io
-from pytorch3d.structures import Meshes, Pointclouds
 from pytorch3d.renderer import (
     FoVPerspectiveCameras,
     look_at_view_transform,
@@ -26,54 +23,13 @@ from pytorch3d.renderer import (
     SoftPhongShader,
     MeshRenderer,
     MeshRasterizer,
-    TexturesUV
 )
 
-
-def load_data(input_type: str, input_path: Path, device: torch.device = "cpu", texture_path: Path = None):
-    if input_type == "pointcloud":
-        pc = trimesh.load(input_path, process=False)
-        verts = torch.Tensor(pc.vertices).to(device).unsqueeze(0)
-        colors = torch.Tensor(pc.colors / 255).to(device).unsqueeze(0)
-
-        input_data = Pointclouds(points=verts, features=colors)
-    elif input_type == "mesh":
-        # Load mesh based on file extension
-        suffix = input_path.suffix
-        if suffix == '.obj':
-            verts, faces, aux = io.load_obj(input_path)
-
-            texture = None
-            if texture_path is not None:
-                if texture_path.is_file():
-                    # Load image
-                    texture_image = cv2.imread(str(texture_path))
-                    # It's important to convert image to float
-                    texture_image = torch.from_numpy(texture_image.astype(np.float32) / 255)
-
-                    # Extract representation needed to create Textures object
-                    verts_uvs = aux.verts_uvs[None, ...]  # (1, V, 2)
-                    faces_uvs = faces.textures_idx[None, ...]  # (1, F, 3)
-                    texture_image = texture_image[None, ...]  # (1, H, W, 3)
-
-                    texture = TexturesUV(verts_uvs=verts_uvs, faces_uvs=faces_uvs, maps=texture_image)
-                else:
-                    Warning("No texture file found for provided .obj scan")
-
-            # Initialise the mesh
-            input_data = Meshes(verts=[verts], faces=[faces.verts_idx], textures=texture).to(device)
-        elif suffix == '.ply':
-            # Ilya: this part wasn't tested properly
-            reader = io.IO()
-            input_data = reader.load_mesh(input_path, device=device)
-        else:
-            raise RuntimeError(f"Unknown scan format {suffix}")
-    else:
-        raise RuntimeError(f"Unsupported input type {input_type}")
-
-    return input_data
+sys.path.append(".")
+from utils.keypoints_3d_estimation.io import load_data
 
 
+# TODO add "at" parameter as  center = np.expand_dims(np.mean(pc.vertices, axis=0), axis=0)
 def create_renderer(input_type: str, n_views: int = 10, image_size: int = 512, elevation: float = 5.0,
                     up=((0, 1, 0),), device: torch.device = "cpu"):
     # Get a batch of viewing angles
@@ -151,10 +107,10 @@ def main(args):
         device = torch.device("cpu")
 
     # Load data
-    input_data = load_data(args.input_type, args.input_path, device, args.tedxture_path)
+    input_type, input_data = load_data(args.input_path, device, args.texture_path)
 
     # Create renderer
-    renderer, renderer_parameters = create_renderer(input_type=args.input_type, n_views=args.n_views, image_size=args.image_size,
+    renderer, renderer_parameters = create_renderer(input_type=input_type, n_views=args.n_views, image_size=args.image_size,
                                                     elevation=args.elevation, device=device)
 
     # Perform batch rendering
@@ -178,11 +134,9 @@ if __name__ == '__main__':
     # Path to input / output
     parser.add_argument("input_path", type=Path,
                         help="Path to input data (mesh or pointcloud)")
-    parser.add_argument("--input-type", "-t", choices=["mesh", "pointcloud"], type=str,
-                        help="Type of input data.")
-    parser.add_argument("--texture-path", type=Path, default=None,
+    parser.add_argument("--texture-path", "-t", type=Path, default=None,
                         help="Path to texture file, only applicable for meshes (default: None)")
-    parser.add_argument("--results-path", type=Path,
+    parser.add_argument("--results-path", "-r", type=Path,
                         help="Path to folder for results (\"<input filename>_renders\" folder with renderings "
                              "is created there)")
     # Rendering parameters
