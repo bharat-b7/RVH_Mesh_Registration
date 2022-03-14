@@ -1,3 +1,8 @@
+"""
+Script for predicting 2D human pose using OpenPose library wrapper.
+
+Author: Ilya Petrov
+"""
 import json
 import argparse
 from pathlib import Path
@@ -103,7 +108,8 @@ if __name__ == '__main__':
                         help="Path to folder for results, by default the results "
                              "are saved to the same folder (default: None)")
     parser.add_argument("--mode", "-m", type=str, choices=['b', 'h', 'f'], nargs='+', default=['b', 'h'],
-                        help="Switching between detecting body, hand, and face joints.")
+                        help="Switching between detecting body, hand, and face joints, "
+                             "modes can be combined (default: b h)")
     parser.add_argument("--visualize", "-v", action="store_true",
                         help="Save visualizations (default: False)")
     args = parser.parse_args()

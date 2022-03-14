@@ -1,3 +1,8 @@
+"""
+Script for lifting 2D OpenPose predictions from multiple views to 3D.
+
+Author: Ilya Petrov
+"""
 import sys
 import json
 import yaml
@@ -149,7 +154,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("Script for lifting 2d keypoints to 3d for virtual camera based setup.")
     # Path to input / output
     parser.add_argument("input_path", type=Path,
-                        help="Path to input data (mesh or pointcloud)")
+                        help="Path to input data (mesh or point cloud)")
     parser.add_argument("--keypoints-2d-path", "-k2", type=Path,
                         help="Path to 2d keypoints predictions for the renderings "
                              "(if not provided 2D_pose.json in scan_path is assumed)")
@@ -170,7 +175,7 @@ if __name__ == "__main__":
     if args.keypoints_2d_path is None:
         args.keypoints_2d_path = args.input_path / "2D_pose.json"
     if args.camera_path is None:
-        args.camera_path = args.input_path / "pytorch3d_params_and_cameras.pkl"
+        args.camera_path = args.input_path / "p3d_render_data.pkl"
     if args.results_path is None:
         args.results_path = args.input_path / "3D_pose.json"
 

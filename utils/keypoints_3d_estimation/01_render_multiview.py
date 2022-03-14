@@ -1,5 +1,5 @@
 """
-Script for rendering the input pointcloud from multiple viewpoints using PyTorch3D.
+Script for rendering the input point cloud from multiple viewpoints using PyTorch3D.
 
 Author: Ilya Petrov
 """
@@ -7,10 +7,12 @@ import sys
 import argparse
 import pickle as pkl
 from pathlib import Path
+from typing import Union
 
 import cv2
 import torch
 import numpy as np
+from pytorch3d.structures import Meshes, Pointclouds
 from pytorch3d.renderer import (
     FoVPerspectiveCameras,
     look_at_view_transform,
@@ -29,15 +31,14 @@ sys.path.append(".")
 from utils.keypoints_3d_estimation.io import load_data
 
 
-# TODO add "at" parameter as  center = np.expand_dims(np.mean(pc.vertices, axis=0), axis=0)
 def create_renderer(input_type: str, n_views: int = 10, image_size: int = 512, elevation: float = 5.0,
-                    up=((0, 1, 0),), device: torch.device = "cpu"):
+                    up=((0, 1, 0),), center=((0, 0, 0),), device: torch.device = "cpu"):
     # Get a batch of viewing angles
     azim = torch.linspace(-180, 180, n_views)
 
     # Initialize a camera
     # With world coordinates +Y up, +X left and +Z in
-    R, T = look_at_view_transform(dist=2.0, elev=elevation, azim=azim, up=up)
+    R, T = look_at_view_transform(dist=2.0, elev=elevation, azim=azim, up=up, at=center)
     cameras = FoVPerspectiveCameras(R=R, T=T, device=device)
 
     if input_type == "pointcloud":
@@ -98,6 +99,18 @@ def create_renderer(input_type: str, n_views: int = 10, image_size: int = 512, e
     return renderer, renderer_parameters
 
 
+def get_center(input_data: Union[Meshes, Pointclouds]):
+    if isinstance(input_data, Meshes):
+        vertices_list = input_data.verts_list()[0]
+    elif isinstance(input_data, Pointclouds):
+        vertices_list = input_data.points_list()[0]
+    else:
+        RuntimeError(f"Unsupported input type {type(input_data)}")
+
+    center = vertices_list.mean(0)
+    return torch.unsqueeze(center, 0)
+
+
 def main(args):
     # Detect device
     if torch.cuda.is_available():
@@ -109,9 +122,12 @@ def main(args):
     # Load data
     input_type, input_data = load_data(args.input_path, device, args.texture_path)
 
+    # Get center location (to control camera orientation)
+    center = get_center(input_data)
+
     # Create renderer
     renderer, renderer_parameters = create_renderer(input_type=input_type, n_views=args.n_views, image_size=args.image_size,
-                                                    elevation=args.elevation, device=device)
+                                                    elevation=args.elevation, center=center, device=device)
 
     # Perform batch rendering
     images = renderer(input_data.extend(args.n_views))
@@ -123,8 +139,8 @@ def main(args):
         # Result is in [0..1] so we have to convert
         cv2.imwrite(str(args.results_path / f"{i:03d}.jpg"), (255 * image).astype(np.uint8))
 
-    if args.save_cameras:
-        with (args.results_path / "pytorch3d_params_and_cameras.pkl").open("wb") as fp:
+    if not args.skip_cameras:
+        with (args.results_path / "p3d_render_data.pkl").open("wb") as fp:
             pkl.dump(renderer_parameters, fp)
 
 
@@ -133,7 +149,7 @@ if __name__ == '__main__':
                                      "from multiple viewpoints using PyTorch3D.")
     # Path to input / output
     parser.add_argument("input_path", type=Path,
-                        help="Path to input data (mesh or pointcloud)")
+                        help="Path to input data (mesh or point cloud)")
     parser.add_argument("--texture-path", "-t", type=Path, default=None,
                         help="Path to texture file, only applicable for meshes (default: None)")
     parser.add_argument("--results-path", "-r", type=Path,
@@ -148,8 +164,8 @@ if __name__ == '__main__':
                         help="Elevation of all created cameras (default: 10)")
 
     # Additional parameters
-    parser.add_argument("--save-cameras", "-c", action="store_true",
-                        help="Save camera parameters in the results folder (default: False)")
+    parser.add_argument("--skip-cameras", "-sc", action="store_true",
+                        help="Don't save camera parameters in the results folder (default: False)")
 
     args = parser.parse_args()
     args.results_path = args.results_path / f"{args.input_path.stem}_renders"
