@@ -122,7 +122,7 @@ def batch_reprojection_loss_vcam(img_bodyjoints, smpl_bodyjoints, cameras: Persp
     sum_loss = img_bodyjoints.new_zeros(img_bodyjoints.shape[0])
     smpl_joints_projected = []
     for k, cam in enumerate(cameras):
-        smpl_joints_proj_xy = cam.transform_points_screen(smpl_bodyjoints, image_size)[:, :, :2]
+        smpl_joints_proj_xy = cam.transform_points_screen(smpl_bodyjoints, image_size=image_size)[:, :, :2]
         smpl_joints_projected.append(smpl_joints_proj_xy)
 
         loss = mse_loss(img_bodyjoints[:, :, k * 3:k * 3 + 2], smpl_joints_proj_xy, reduction='none')
