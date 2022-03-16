@@ -21,12 +21,13 @@ class SMPL_Layer(Module):
                  center_idx=None,
                  gender='neutral',
                  model_root='smpl/native/models',
-                 num_betas=300):
+                 num_betas=300,
+                 hands=False):
         """
         Args:
             center_idx: index of center joint in our computations,
             model_root: path to pkl files for the model
-            gender: 'neutral' (default) or 'female' or 'male'
+            gender: 'neutral' (default) or 'female' or 'male', for smplh, only supports male or female
         """
         super().__init__()
 
@@ -34,9 +35,13 @@ class SMPL_Layer(Module):
         self.gender = gender
 
         self.model_root = model_root
-        self.model_folder = os.path.join(model_root, "models_v1.0.0/models")
-
-        self.model_path = os.path.join(model_root, f"SMPL_{self.gender}.pkl")
+        self.hands = hands
+        if self.hands:
+            assert self.gender in ['male', 'female'], 'SMPL-H model only supports male or female, not {}'.format(self.gender)
+            self.model_path = os.path.join(model_root, f"SMPLH_{self.gender}.pkl")
+        else:
+            self.model_folder = os.path.join(model_root, "models_v1.0.0/models")
+            self.model_path = os.path.join(model_root, f"SMPL_{self.gender}.pkl")
         # if gender == 'neutral':
         #     self.model_path = os.path.join(self.model_folder, 'basicmodel_neutral_lbs_10_207_0_v1.0.0.pkl')
         # elif gender == 'female':
@@ -92,7 +97,7 @@ class SMPL_Layer(Module):
         root_rot = th_pose_rotmat[:, :9].view(batch_size, 3, 3)
         # Take out the remaining rotmats (23 joints)
         th_pose_rotmat = th_pose_rotmat[:, 9:]
-        th_pose_map = subtract_flat_id(th_pose_rotmat)
+        th_pose_map = subtract_flat_id(th_pose_rotmat, self.hands)
 
         # Below does: v_shaped = v_template + shapedirs * betas
         # If shape parameters are not provided
@@ -160,15 +165,19 @@ class SMPL_Layer(Module):
         th_jtr *= scale
 
         # Shift to new root
-        if self.center_idx is not None:
-            center_joint = th_jtr[:, self.center_idx].unsqueeze(1)
-            th_jtr = th_jtr - center_joint
-            th_verts = th_verts - center_joint
+        # if self.center_idx is not None:
+        #     center_joint = th_jtr[:, self.center_idx].unsqueeze(1)
+        #     th_jtr = th_jtr - center_joint
+        #     th_verts = th_verts - center_joint
+        #
+        # # If translation is provided
+        # if not(th_trans is None or bool(torch.norm(th_trans) == 0)):
+        #     th_jtr = th_jtr + th_trans.unsqueeze(1)
+        #     th_verts = th_verts + th_trans.unsqueeze(1)
 
-        # If translation is provided
-        if not(th_trans is None or bool(torch.norm(th_trans) == 0)):
-            th_jtr = th_jtr + th_trans.unsqueeze(1)
-            th_verts = th_verts + th_trans.unsqueeze(1)
+        # XH: not doing shift, apply translation instead
+        th_jtr = th_jtr + th_trans.unsqueeze(1)
+        th_verts = th_verts + th_trans.unsqueeze(1)
 
         # Vertices and joints in meters
         return th_verts, th_jtr, th_v_posed, naked

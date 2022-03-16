@@ -15,8 +15,8 @@ from smpl_registration.fit_SMPLH import SMPLHFitter
 
 
 class SMPLDFitter(SMPLHFitter):
-    def __init__(self, model_root, device='cuda:0', save_name='smpld', debug=False):
-        super(SMPLDFitter, self).__init__(model_root, device, save_name, debug)
+    def __init__(self, model_root, device='cuda:0', save_name='smpld', debug=False, hands=False):
+        super(SMPLDFitter, self).__init__(model_root, device, save_name, debug, hands)
 
     def fit(self, scans, pose_files, smpl_pkl, gender='male', save_path=None):
         if smpl_pkl is None or smpl_pkl[0] is None:
@@ -38,7 +38,7 @@ class SMPLDFitter(SMPLHFitter):
         th_scan_meshes = self.load_scans(scans)
 
         # optimize offsets
-        self.optimize_offsets(th_scan_meshes, smpl, 6, 10)
+        self.optimize_offsets(th_scan_meshes, smpl, 8, 10)
 
         if save_path is not None:
             if not exists(save_path):
@@ -107,34 +107,35 @@ class SMPLDFitter(SMPLHFitter):
                        'offsets': lambda cst, it: 10. ** -1 * cst / (1 + it),
                        'pose_pr': lambda cst, it: 10. ** -5 * cst / (1 + it),
                        'hand': lambda cst, it: 10. ** -5 * cst / (1 + it),
-                       'lap': lambda cst, it: 100**2*cst / (1 + it),
+                       'lap': lambda cst, it: 300**2*cst / (1 + it),
                        'pose_obj': lambda cst, it: 10. ** 2 * cst / (1 + it)
                        }
         return loss_weight
 
 def main(args):
-    fitter = SMPLDFitter(args.model_root, debug=args.display)
+    fitter = SMPLDFitter(args.model_root, debug=args.display, hands=args.hands)
     fitter.fit([args.scan_path], [args.pose_file], [args.smpl_pkl], args.gender, args.save_path)
 
 
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='Run Model')
-    parser.add_argument('scan_path', type=str, help='path to the 3d scans')
-    parser.add_argument('pose_file', type=str, help='3d body joints file')
-    parser.add_argument('save_path', type=str, help='save path for all scans')
-    parser.add_argument('-gender', type=str, default='male') # can be female
-    parser.add_argument('-smpl_pkl', type=str, default=None)  # In case SMPL fit is already available
-    parser.add_argument('--display', default=False, action='store_true')
+    # parser.add_argument('scan_path', type=str, help='path to the 3d scans')
+    # parser.add_argument('pose_file', type=str, help='3d body joints file')
+    # parser.add_argument('save_path', type=str, help='save path for all scans')
+    # parser.add_argument('-gender', type=str, default='male') # can be female
+    # parser.add_argument('-smpl_pkl', type=str, default=None)  # In case SMPL fit is already available
+    # parser.add_argument('--display', default=False, action='store_true')
+    parser.add_argument('-hands', default=False, action='store_true', help='use SMPL+hand model or not')
     parser.add_argument('-mr', '--model_root', default="/BS/xxie2020/static00/mysmpl/smplh")
     args = parser.parse_args()
 
     # args = lambda: None
-    # args.scan_path = '/BS/bharat-2/static00/renderings/renderpeople/rp_alison_posed_017_30k/rp_alison_posed_017_30k.obj'
-    # args.pose_file = '/BS/bharat-2/static00/renderings/renderpeople/rp_alison_posed_017_30k/pose3d/rp_alison_posed_017_30k.json'
-    # args.display = True
-    # args.save_path = '/BS/xxie-2/work/MPI_MeshRegistration/test_data'
-    # args.gender = 'female'
-    # args.smpl_pkl = '/BS/xxie-2/work/MPI_MeshRegistration/test_data/rp_alison_posed_017_30k_smpl.pkl'
+    args.scan_path = '/BS/bharat-2/static00/renderings/renderpeople/rp_alison_posed_017_30k/rp_alison_posed_017_30k.obj'
+    args.pose_file = '/BS/bharat-2/static00/renderings/renderpeople/rp_alison_posed_017_30k/pose3d/rp_alison_posed_017_30k.json'
+    args.display = True
+    args.save_path = '/BS/xxie-2/work/MPI_MeshRegistration/test_data'
+    args.gender = 'female'
+    args.smpl_pkl = '/BS/xxie-2/work/MPI_MeshRegistration/test_data/rp_alison_posed_017_30k_smpl.pkl'
 
     main(args)

@@ -15,17 +15,19 @@ from psbody.mesh import MeshViewer, Mesh
 from lib.smpl.priors.th_hand_prior import mean_hand_pose
 from lib.smpl.priors.th_smpl_prior import get_prior
 # from lib.smpl_paths import SmplPaths
-from lib.smpl.wrapper_smplh import SMPLHPyTorchWrapperBatch
+# from lib.smpl.wrapper_smplh import SMPLHPyTorchWrapperBatch
+from lib.smpl.wrapper_pytorch import SMPLPyTorchWrapperBatch
 from lib.smpl.const import *
 from lib.body_objectives import HAND_VISIBLE
 
 
 class BaseFitter(object):
-    def __init__(self, model_root, device='cuda:0', save_name='smpl', debug=False):
+    def __init__(self, model_root, device='cuda:0', save_name='smpl', debug=False, hands=True):
         self.model_root = model_root # root path to the smpl or smplh model
         self.debug = debug
         self.save_name = save_name # suffix of the output file
         self.device = device
+        self.hands = hands
         if debug:
             self.mv = MeshViewer()
 
@@ -71,7 +73,8 @@ class BaseFitter(object):
         Args:
             batch_sz:
             gender:
-            flip: rotate smpl around z-axis by 180 degree
+            flip: rotate smpl around z-axis by 180 degree, required for kinect point clouds, which has different coordinate
+            from scans
 
         Returns: batch smplh model
 
@@ -81,24 +84,32 @@ class BaseFitter(object):
         # th_faces = torch.tensor(smpl_faces.astype('float32'), dtype=torch.long).to(self.device)
         num_betas = 10
         prior = get_prior(self.model_root, gender=gender)
-        pose_init = torch.zeros((batch_sz, SMPLH_POSE_PRAMS_NUM))
-        hand_mean = mean_hand_pose(self.model_root)
+        total_pose_num = SMPLH_POSE_PRAMS_NUM if self.hands else SMPL_POSE_PRAMS_NUM
+        pose_init = torch.zeros((batch_sz, total_pose_num))
         if pose is None:
+            # initialize hand pose from mean
             pose_init[:, 3:SMPLH_HANDPOSE_START] = prior.mean
-            hand_init = torch.tensor(hand_mean, dtype=torch.float).to(self.device)
+            if self.hands:
+                hand_mean = mean_hand_pose(self.model_root)
+                hand_init = torch.tensor(hand_mean, dtype=torch.float).to(self.device)
+            else:
+                hand_init = torch.zeros((batch_sz, SMPL_HAND_POSE_NUM))
             pose_init[:, SMPLH_HANDPOSE_START:] = hand_init
             if flip:
                 pose_init[:, 2] = np.pi
         else:
             pose_init[:, :SMPLH_HANDPOSE_START] = pose[:, :SMPLH_HANDPOSE_START]
-            if pose.shape[1] == SMPLH_POSE_PRAMS_NUM:
+            if pose.shape[1] == total_pose_num:
                 pose_init[:, SMPLH_HANDPOSE_START:] = pose[:, SMPLH_HANDPOSE_START:]
         beta_init = torch.zeros((batch_sz, num_betas)) if betas is None else betas
         trans_init = torch.zeros((batch_sz, 3)) if trans is None else trans
         betas, pose, trans = beta_init, pose_init, trans_init
         # Init SMPL, pose with mean smpl pose, as in ch.registration
-        smpl = SMPLHPyTorchWrapperBatch(self.model_root, batch_sz, betas, pose, trans,
-                                        num_betas=num_betas, device=self.device, gender=gender).to(self.device)
+        # smpl = SMPLHPyTorchWrapperBatch(self.model_root, batch_sz, betas, pose, trans,
+        #                                 num_betas=num_betas, device=self.device, gender=gender).to(self.device)
+        smpl = SMPLPyTorchWrapperBatch(self.model_root, batch_sz, betas, pose, trans,
+                                        num_betas=num_betas, device=self.device,
+                                       gender=gender, hands=self.hands).to(self.device)
         return smpl
 
     @staticmethod

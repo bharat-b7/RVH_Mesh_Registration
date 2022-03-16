@@ -14,7 +14,8 @@ from pytorch3d.loss import chamfer_distance, point_mesh_face_distance
 from pytorch3d.structures import Pointclouds, Meshes
 
 from smpl_registration.fit_SMPLH import SMPLHFitter
-from lib.smpl.wrapper_smplh import SMPLHPyTorchWrapperBatchSplitParams
+# from lib.smpl.wrapper_smplh import SMPLHPyTorchWrapperBatchSplitParams
+from lib.smpl.wrapper_pytorch import SMPLPyTorchWrapperBatchSplitParams
 from lib.smpl.const import *
 from lib.smpl.priors.th_smpl_prior import get_prior
 from lib.smpl.priors.th_hand_prior import HandPrior
@@ -68,7 +69,8 @@ class SMPLHPCloudFitter(SMPLHFitter):
         return loss_weight
 
     def optimize_pose_shape(self, pclouds, smpl, iterations, steps_per_iter, joints_3d=None):
-        split_smpl = SMPLHPyTorchWrapperBatchSplitParams.from_smplh(smpl).to(self.device)
+        # split_smpl = SMPLHPyTorchWrapperBatchSplitParams.from_smplh(smpl).to(self.device)
+        split_smpl = SMPLPyTorchWrapperBatchSplitParams.from_smpl(smpl).to(self.device)
         optimizer = torch.optim.Adam([split_smpl.trans,
                                       split_smpl.global_pose,
                                       split_smpl.top_betas],
@@ -246,7 +248,7 @@ class SMPLHPCloudFitter(SMPLHFitter):
 
 
 def main(args):
-    fitter = SMPLHPCloudFitter(args.model_root, debug=args.display)
+    fitter = SMPLHPCloudFitter(args.model_root, debug=args.display, hands=args.hands)
     fitter.fit([args.pc_path], [args.j3d_file], [args.pose_init], args.gender, args.save_path)
 
 
@@ -259,6 +261,7 @@ if __name__ == "__main__":
     parser.add_argument('save_path', type=str, help='save path for all scans')
     parser.add_argument('-gender', type=str, default='male')
     parser.add_argument('--display', default=False, action='store_true')
+    parser.add_argument('-hands', default=False, action='store_true', help='use SMPL+hand model or not')
     parser.add_argument('-mr', '--model_root', default="/BS/xxie2020/static00/mysmpl/smplh")
     args = parser.parse_args()
 

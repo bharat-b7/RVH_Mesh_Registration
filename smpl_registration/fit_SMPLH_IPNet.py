@@ -46,7 +46,7 @@ class SMPLHIPNetFitter(SMPLDFitter):
         Args:
             args: command line arguments
         """
-        super(SMPLHIPNetFitter, self).__init__(args.model_root, debug=args.display)
+        super(SMPLHIPNetFitter, self).__init__(args.model_root, debug=args.display, hands=args.hands)
         # Load network
         net = model.IPNet(hidden_dim=args.decoder_hidden_dim, num_parts=14)
         gen = GeneratorIPNet(net, 0.5, exp_name=None, resolution=args.retrieval_res,
@@ -292,6 +292,7 @@ if __name__ == "__main__":
     parser.add_argument('save_path', type=str, help='save path for all scans')
     parser.add_argument('-gender', type=str, default='male') # can be female
     parser.add_argument('--display', default=False, action='store_true')
+    parser.add_argument('-hands', default=False, action='store_true', help='use SMPL+hand model or not')
     parser.add_argument('-mr', '--model_root', default="/BS/xxie2020/static00/mysmpl/smplh")
     # the resolution of the input
     parser.add_argument('-res', default=128, type=int)

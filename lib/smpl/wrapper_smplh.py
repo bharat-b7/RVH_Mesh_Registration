@@ -157,7 +157,7 @@ class SMPLHPyTorchWrapper(Module):
         th_verts = (th_verts) * scale
         th_jtr = (th_jtr) * scale
 
-        # If translation is not provided
+        # If translation is provided
         th_jtr = th_jtr + th_trans.unsqueeze(1)
         th_verts = th_verts + th_trans.unsqueeze(1)
 

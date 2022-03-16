@@ -19,7 +19,8 @@ from smpl_registration.base_fitter import BaseFitter
 from lib.body_objectives import batch_get_pose_obj
 from lib.smpl.priors.th_smpl_prior import get_prior
 from lib.smpl.priors.th_hand_prior import HandPrior
-from lib.smpl.wrapper_smplh import SMPLHPyTorchWrapperBatchSplitParams
+# from lib.smpl.wrapper_smplh import SMPLHPyTorchWrapperBatchSplitParams
+from lib.smpl.wrapper_pytorch import SMPLPyTorchWrapperBatchSplitParams
 
 
 class SMPLHFitter(BaseFitter):
@@ -95,22 +96,24 @@ class SMPLHFitter(BaseFitter):
         loss['m2s'] = point_mesh_face_distance(th_scan_meshes, Pointclouds(points=th_smpl_meshes.verts_list()))
         loss['betas'] = torch.mean(smpl.betas ** 2)
         loss['pose_pr'] = torch.mean(prior(smpl.pose))
-        hand_prior = HandPrior(self.model_root, type='grab')
-        loss['hand'] = torch.mean(hand_prior(smpl.pose))
+        if self.hands:
+            hand_prior = HandPrior(self.model_root, type='grab')
+            loss['hand'] = torch.mean(hand_prior(smpl.pose)) # add hand prior if smplh is used
         if th_pose_3d is not None:
             loss['pose_obj'] = batch_get_pose_obj(th_pose_3d, smpl).mean()
         return loss
 
     def optimize_pose_only(self, th_scan_meshes, smpl, iterations,
                            steps_per_iter, th_pose_3d, prior_weight=None):
-        split_smpl = SMPLHPyTorchWrapperBatchSplitParams.from_smplh(smpl).to(self.device)
+        # split_smpl = SMPLHPyTorchWrapperBatchSplitParams.from_smplh(smpl).to(self.device)
+        split_smpl = SMPLPyTorchWrapperBatchSplitParams.from_smpl(smpl).to(self.device)
         optimizer = torch.optim.Adam([split_smpl.trans, split_smpl.top_betas, split_smpl.global_pose], 0.02,
                                      betas=(0.9, 0.999))
 
         # Get loss_weights
         weight_dict = self.get_loss_weights()
 
-        iter_for_global = 1
+        iter_for_global = 5
         for it in range(iter_for_global + iterations):
             loop = tqdm(range(steps_per_iter))
             if it < iter_for_global:
@@ -131,7 +134,7 @@ class SMPLHFitter(BaseFitter):
                 # Get losses for a forward pass
                 loss_dict = self.forward_step_pose_only(split_smpl, th_pose_3d, prior_weight)
                 # Get total loss for backward pass
-                tot_loss = self.backward_step(loss_dict, weight_dict, it)
+                tot_loss = self.backward_step(loss_dict, weight_dict, it/2)
                 tot_loss.backward()
                 optimizer.step()
 
@@ -139,6 +142,7 @@ class SMPLHFitter(BaseFitter):
                 for k in loss_dict:
                     l_str += ', {}: {:0.4f}'.format(k, weight_dict[k](loss_dict[k], it).mean().item())
                     loop.set_description(l_str)
+                print(split_smpl.trans)
 
                 if self.debug:
                     self.viz_fitting(split_smpl, th_scan_meshes)
@@ -183,7 +187,7 @@ class SMPLHFitter(BaseFitter):
 
 
 def main(args):
-    fitter = SMPLHFitter(args.model_root, debug=args.display)
+    fitter = SMPLHFitter(args.model_root, debug=args.display, hands=args.hands)
     fitter.fit([args.scan_path], [args.pose_file], args.gender, args.save_path)
 
 
@@ -196,6 +200,8 @@ if __name__ == "__main__":
     parser.add_argument('-gender', type=str, default='female')  # can be female
     parser.add_argument('--display', default=False, action='store_true')
     parser.add_argument('-mr', '--model_root', default="/BS/xxie2020/static00/mysmpl/smplh")
+    parser.add_argument('-hands', default=False, action='store_true', help='use SMPL+hand model or not')
+    # parser.add_argument('-mr', '--model_root', default="/BS/xxie2020/static00/mysmpl/smpl/smpl")
     args = parser.parse_args()
 
     # args = lambda: None
