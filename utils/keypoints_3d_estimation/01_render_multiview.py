@@ -19,7 +19,7 @@ from pytorch3d.renderer import (
     PointsRasterizer,
     PointsRenderer,
     PointsRasterizationSettings,
-    AlphaCompositor,
+    NormWeightedCompositor,
     PointLights,
     RasterizationSettings,
     SoftPhongShader,
@@ -56,7 +56,7 @@ def create_renderer(input_type: str, n_views: int = 10, image_size: int = 512, e
                 cameras=cameras,
                 raster_settings=raster_settings
             ),
-            compositor=AlphaCompositor()
+            compositor=NormWeightedCompositor()
         )
     elif input_type == "mesh":
         # Define the settings for rasterization and shading
@@ -127,7 +127,7 @@ def main(args):
 
     # Create renderer
     renderer, renderer_parameters = create_renderer(input_type=input_type, n_views=args.n_views, image_size=args.image_size,
-                                                    elevation=args.elevation, center=center, device=device)
+                                                    elevation=args.elevation, center=center, device=device, up=args.camera_up)
 
     # Perform batch rendering
     images = renderer(input_data.extend(args.n_views))
@@ -162,6 +162,8 @@ if __name__ == '__main__':
                         help="Result image size (SxS, default: 512)")
     parser.add_argument("--elevation", "-e", type=float, default=10,
                         help="Elevation of all created cameras (default: 10)")
+    parser.add_argument("--camera-up", "-up", nargs=3, type=float, default=(0, 1, 0),
+                        help="Direction of camera up (default: (0, 1, 0))")
 
     # Additional parameters
     parser.add_argument("--skip-cameras", "-sc", action="store_true",
@@ -169,5 +171,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     args.results_path = args.results_path / f"{args.input_path.stem}_renders"
+    args.camera_up = (args.camera_up, )
 
     main(args)
