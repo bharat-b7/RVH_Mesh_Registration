@@ -5,9 +5,37 @@ This documentation explains how to obtain 3D body keypoints for SMPL registratio
 The scripts are located in ```utils/keypoints_3d_estimation```
 
 **Contents**
+1. [OpenPose setup](#openpose-setup)
 1. [Multi-view rendering](#multi-view-rendering)
-2. [2D pose prediction](#2d-pose-prediction)
-3. [Lifting 2D pose to 3D](#lifting-2d-pose-to-3d)
+1. [2D pose prediction](#2d-pose-prediction)
+1. [Lifting 2D pose to 3D](#lifting-2d-pose-to-3d)
+
+### OpenPose setup
+Here we provide instructions for building OpenPose library from source with our patch.
+
+```
+PYTHON_LIB_FOLDER="/usr/local/lib/python3.6/"
+OPENPOSE_BUILD_DIR="/openpose/"
+
+# Install CMake
+wget https://github.com/Kitware/CMake/releases/download/v3.16.0/cmake-3.16.0-Linux-x86_64.tar.gz
+tar xzf cmake-3.16.0-Linux-x86_64.tar.gz -C /opt
+rm cmake-3.16.0-Linux-x86_64.tar.gz
+
+# Build OpenPose
+git clone https://github.com/CMU-Perceptual-Computing-Lab/openpose.git
+cd openpose && git submodule update --init --recursive --remote
+# Our patch for OpenPose
+git apply <path-to-the-repo>/assets/openpose.patch
+# Generate and build
+mkdir ${OPENPOSE_BUILD_DIR} && cd ${OPENPOSE_BUILD_DIR} && \
+    /opt/cmake-3.16.0-Linux-x86_64/bin/cmake -DBUILD_PYTHON=ON .. && make -j 16
+
+# Install Python bindings
+cd ${OPENPOSE_BUILD_DIR}/python/openpose && make install
+cp ${OPENPOSE_BUILD_DIR}python/openpose/pyopenpose.cpython-36m-x86_64-linux-gnu.so ${PYTHON_LIB_FOLDER}/dist-packages
+cd ${PYTHON_LIB_FOLDER}/dist-packages && ln -s pyopenpose.cpython-36m-x86_64-linux-gnu.so pyopenpose
+```
 
 ### Multi-view rendering
 Script: ```utils/keypoints_3d_estimation/01_render_multiview.py```
