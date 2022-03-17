@@ -14,7 +14,6 @@ from pytorch3d.loss import chamfer_distance, point_mesh_face_distance
 from pytorch3d.structures import Pointclouds, Meshes
 
 from smpl_registration.fit_SMPLH import SMPLHFitter
-# from lib.smpl.wrapper_smplh import SMPLHPyTorchWrapperBatchSplitParams
 from lib.smpl.wrapper_pytorch import SMPLPyTorchWrapperBatchSplitParams
 from lib.smpl.const import *
 from lib.smpl.priors.th_smpl_prior import get_prior
@@ -51,12 +50,12 @@ class SMPLHPCloudFitter(SMPLHFitter):
         if save_path is not None:
             if not exists(save_path):
                 os.makedirs(save_path)
-            return self.save_outputs(save_path, pc_files, smpl, points)
+            return self.save_outputs(save_path, pc_files, smpl, points, self.save_name_base)
 
     def get_loss_weights(self, phase=None):
         loss_weight = {
             'p2mf': lambda cst, it: 10. ** 2 * cst * (1 + it),
-            'chamf': lambda cst, it: 0.8 ** 2 * cst / (1 + it),
+            'chamf': lambda cst, it: 3. ** 2 * cst / (1 + it),
             'beta': lambda cst, it: 10. ** 0 * cst / (1 + it),
             'body_prior': lambda cst, it: 10. ** -5 * cst / (1 + it),
             'hand': lambda cst, it: 10. ** -5 * cst / (1 + it),
@@ -65,7 +64,7 @@ class SMPLHPCloudFitter(SMPLHFitter):
         }
         if phase == 'all':
             # increase chamfer weight
-            loss_weight['chamf'] = lambda cst, it: 2.5 ** 2 * cst / (1 + it)
+            loss_weight['chamf'] = lambda cst, it: 30. ** 2 * cst / (1 + it)
         return loss_weight
 
     def optimize_pose_shape(self, pclouds, smpl, iterations, steps_per_iter, joints_3d=None):
@@ -138,18 +137,16 @@ class SMPLHPCloudFitter(SMPLHFitter):
         prior = get_prior(self.model_root, smpl.gender)
         prior_loss = torch.mean(prior(smpl.pose[:, :SMPL_POSE_PRAMS_NUM]))
         loss_dict['body_prior'] = prior_loss
-        hand_prior = HandPrior(self.model_root, type='grab')
-        loss_dict['hand'] = torch.mean(hand_prior(smpl.pose))
+        if self.hands:
+            hand_prior = HandPrior(self.model_root, type='grab')
+            loss_dict['hand'] = torch.mean(hand_prior(smpl.pose))  # add hand prior if smplh is used
 
         J, face, hands = smpl.get_landmarks()
 
         # 3D joints loss
-        j3d_loss = batch_3djoints_loss(joints_3d, J)
+        joints = self.compose_smpl_joints(J, face, hands, joints_3d)
+        j3d_loss = batch_3djoints_loss(joints_3d, joints)
         loss_dict['joints3d'] = j3d_loss
-
-        # temporal all time
-        # verts_diff = (verts[1:] - verts[:-1]) ** 2
-        # loss_dict['temporal'] = torch.mean(torch.sum(verts_diff, dim=(1, 2)))
 
         if phase == 'all':
             # add chamfer distance loss
@@ -177,7 +174,7 @@ class SMPLHPCloudFitter(SMPLHFitter):
         # save smpl mesh
         self.save_meshes(th_smpl_meshes, mesh_paths)
         # save original pc
-        self.save_pclouds(pclouds, [join(save_path, n) for n in names])
+        # self.save_pclouds(pclouds, [join(save_path, n) for n in names])
         # Save params
         self.save_smpl_params(names, save_path, smpl, save_name)
         return smpl.pose.cpu().detach().numpy(), smpl.betas.cpu().detach().numpy(), smpl.trans.cpu().detach().numpy()
@@ -221,23 +218,6 @@ class SMPLHPCloudFitter(SMPLHFitter):
             betas.append(torch.tensor(params['betas']))
         return torch.stack(poses), torch.stack(betas)
 
-    def load_j3d(self, pose_files):
-        """
-        load 3d body keypoints lifted from multi-view rendering of kinect pc
-        Args:
-            pose_files: json files containing the 25 body keypoints location
-
-        Returns: (B, 25, 4) of body keypoints as a tensor
-
-        """
-        joints = []
-        for file in pose_files:
-            data = json.load(open(file))
-            J3d = np.array(data["body_joints3d"]).reshape((-1, 4))
-            joints.append(J3d)
-        joints = np.stack(joints)
-        return torch.from_numpy(joints).float()
-
     def viz_fitting(self, smpl, pclouds, ind=0,
                     smpl_vc=np.array([0, 1, 0])):
         verts, _, _, _ = smpl()
@@ -254,25 +234,29 @@ def main(args):
 
 if __name__ == "__main__":
     import argparse
+    from utils.configs import load_config
+    from pathlib import Path
     parser = argparse.ArgumentParser(description='Run Model')
     parser.add_argument('pc_path', type=str, help='path to the point cloud')
     parser.add_argument('j3d_file', type=str, help='3d body joints file')
-    parser.add_argument('pose_init', type=str, help='init smpl pose, if exist')
     parser.add_argument('save_path', type=str, help='save path for all scans')
+    parser.add_argument('pose_init', type=str, help='init smpl pose, if exist')
+    parser.add_argument("--config-path", "-c", type=Path, default="config.yml",
+                        help="Path to yml file with config")
     parser.add_argument('-gender', type=str, default='male')
     parser.add_argument('--display', default=False, action='store_true')
     parser.add_argument('-hands', default=False, action='store_true', help='use SMPL+hand model or not')
-    parser.add_argument('-mr', '--model_root', default="/BS/xxie2020/static00/mysmpl/smplh")
     args = parser.parse_args()
 
     # args = lambda: None
-    # args.pc_path = '/BS/xxie-4/work/kindata/Oct11_bharat_boxlarge/t0003.000/person/person.ply'
-    # args.j3d_file = '/BS/xxie-4/work/kindata/Oct11_bharat_boxlarge/t0003.000/person/person_J3d.json'
-    # # args.pose_init = "/BS/xxie-4/work/kindata/Oct11_bharat_boxlarge/t0003.000/k1.mocap.json"
-    # args.pose_init = None
+    # args.pc_path = "data/pc/person.ply"
+    # args.j3d_file = "data/pc/3D_test.json"
+    # args.pose_init = "data/pc/mocap.json"
     # args.display = True
-    # args.save_path = '/BS/xxie-2/work/MPI_MeshRegistration/test_data'
     # args.gender = 'male'
+    # args.save_path = 'data/pc'
+    config = load_config(args.config_path)
+    args.model_root = Path(config["SMPL_MODELS_PATH"])
 
     main(args)
         

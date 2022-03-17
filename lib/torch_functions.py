@@ -5,7 +5,6 @@ Author: Bharat
 """
 import torch
 
-
 def np2tensor(x, device=None):
     return torch.tensor(x, device=device)
 
@@ -88,17 +87,24 @@ def batch_chamfer(pc_list, verts, reduction='mean', reverse=False, bidirectional
     if reverse: compute chamfer from pc to verts
     default direction: verts to kinect pc
     """
-    from chamferdist import ChamferDistance
+    # from chamferdist import ChamferDistance
     assert len(pc_list) == verts.shape[0], 'the size of pc list does not match verts batch size'
     batch_size = verts.shape[0]
-    chamferDist = ChamferDistance()
+    # chamferDist = ChamferDistance()
+    if bidirectional:
+        w1, w2 = 1.0, 1.0
+    else:
+        w1, w2 = 1.0, 0.  # only compute distance from s1 to s2
     distances = []
     points_num = []
     for i, pc in enumerate(pc_list):
         if reverse:
-            chamf = chamferDist(pc.unsqueeze(0), verts[i].unsqueeze(0), bidirectional=bidirectional)  # unidirection: pc to SMPL
+            chamf = chamfer_distance(pc.unsqueeze(0), verts[i].unsqueeze(0), w1, w2)
+            # chamf = chamferDist(pc.unsqueeze(0), verts[i].unsqueeze(0), bidirectional=bidirectional)  # unidirection: pc to SMPL
         else:
-            chamf = chamferDist(verts[i].unsqueeze(0), pc.unsqueeze(0), bidirectional=bidirectional) # unidirection: SMPL to pc
+            # verts to pc distance
+            chamf = chamfer_distance(verts[i].unsqueeze(0), pc.unsqueeze(0), w1, w2)
+            # chamf = chamferDist(verts[i].unsqueeze(0), pc.unsqueeze(0), bidirectional=bidirectional) # unidirection: SMPL to pc
         distances.append(chamf)
         points_num.append(pc.shape[0])
     points_num = torch.tensor(points_num, device=verts.device, dtype=verts.dtype)

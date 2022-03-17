@@ -18,7 +18,7 @@ from pytorch3d.structures import Meshes, Pointclouds
 from pytorch3d.loss import point_mesh_face_distance, chamfer_distance
 import pickle as pkl
 from tqdm import tqdm
-from lib.smpl.wrapper_smplh import SMPLHPyTorchWrapperBatchSplitParams
+from lib.smpl.wrapper_pytorch import SMPLPyTorchWrapperBatchSplitParams
 from models.generator import GeneratorIPNet, GeneratorIPNetMano, Generator
 import models.ipnet_models as model
 from fit_SMPLHD import SMPLDFitter
@@ -59,6 +59,8 @@ class SMPLHIPNetFitter(SMPLDFitter):
         self.net = net
         self.generator = gen
         self.res = args.res # voxel input resolution
+
+        self.save_name_base = 'smplh' if self.hands else 'smpl'
 
     def fit(self, scans, pose_files, smpl_pkl, gender='male', save_path=None):
         assert len(scans) == 1, 'currently only support batch size 1!'
@@ -109,18 +111,19 @@ class SMPLHIPNetFitter(SMPLDFitter):
         # Optimize pose and shape
         self.optimize_pose_shape(th_scan_meshes, smpl, iterations, steps_per_iter, parts_th, smpl_part_labels)
         # save smpl outputs
-        self.save_outputs(save_path, scans, smpl, th_scan_meshes)
+        self.save_outputs(save_path, scans, smpl, th_scan_meshes, save_name=f'{self.save_name_base}-ipnet')
 
         # optimize offsets using outer surface prediction
         th_scan_meshes = self.meshes2torch([full])
         self.optimize_offsets(th_scan_meshes, smpl, 6, 10)
 
         # save smpld outputs
-        return self.save_outputs(save_path, scans, smpl, th_scan_meshes, save_name='smpld')
+        return self.save_outputs(save_path, scans, smpl, th_scan_meshes, save_name=f'{self.save_name_base}-ipnet')
 
     def optimize_pose_only(self, th_scan_meshes, smpl, iterations,
                            steps_per_iter, scan_parts, smpl_parts):
-        split_smpl = SMPLHPyTorchWrapperBatchSplitParams.from_smplh(smpl).to(self.device)
+        # split_smpl = SMPLHPyTorchWrapperBatchSplitParams.from_smplh(smpl).to(self.device)
+        split_smpl = SMPLPyTorchWrapperBatchSplitParams.from_smpl(smpl).to(self.device)
         optimizer = torch.optim.Adam([split_smpl.trans, split_smpl.top_betas, split_smpl.global_pose], 0.02,
                                      betas=(0.9, 0.999))
         # Get loss_weights
@@ -212,7 +215,7 @@ class SMPLHIPNetFitter(SMPLDFitter):
             Then computes the losses.
             """
         # Get pose prior
-        prior = get_prior(smpl.gender, precomputed=True)
+        prior = get_prior(self.model_root, smpl.gender, precomputed=True)
 
         # forward
         verts, _, _, _ = smpl()
@@ -223,8 +226,9 @@ class SMPLHIPNetFitter(SMPLDFitter):
         loss['m2s'] = point_mesh_face_distance(th_scan_meshes, Pointclouds(points=th_smpl_meshes.verts_list()))
         loss['betas'] = torch.mean(smpl.betas ** 2)
         loss['pose_pr'] = torch.mean(prior(smpl.pose))
-        hand_prior = HandPrior(self.model_root, type='grab')
-        loss['hand'] = torch.mean(hand_prior(smpl.pose))
+        if self.hands:
+            hand_prior = HandPrior(self.model_root, type='grab')
+            loss['hand'] = torch.mean(hand_prior(smpl.pose))  # add hand prior if smplh is used
 
         loss['part'] = []
         scan_verts = th_scan_meshes.verts_list()
@@ -287,26 +291,27 @@ def main(args):
 
 if __name__ == "__main__":
     import argparse
+    from utils.configs import load_config
+    from pathlib import Path
     parser = argparse.ArgumentParser(description='Run Model')
     parser.add_argument('scan_path', type=str, help='path to the 3d scans')
     parser.add_argument('save_path', type=str, help='save path for all scans')
+    parser.add_argument('-w', '--weights', help='ip-net model checkpoint path')
+    parser.add_argument("--config-path", "-c", type=Path, default="config.yml",
+                        help="Path to yml file with config")
     parser.add_argument('-gender', type=str, default='male') # can be female
     parser.add_argument('--display', default=False, action='store_true')
     parser.add_argument('-hands', default=False, action='store_true', help='use SMPL+hand model or not')
-    parser.add_argument('-mr', '--model_root', default="/BS/xxie2020/static00/mysmpl/smplh")
-    # the resolution of the input
     parser.add_argument('-res', default=128, type=int)
     # keep this fixed
     parser.add_argument('-h_dim', '--decoder_hidden_dim', default=256, type=int)
     # number of points queried for to produce the result
     parser.add_argument('-retrieval_res', default=256, type=int)
     # number of points from the querey grid which are put into the batch at once
-    # parser.add_argument('-batch_points', default=300000, type=int)
     parser.add_argument('-batch_points', default=10000, type=int)
     args = parser.parse_args()
 
     # args.scan_path = 'assets/scan.obj'
-    # args.weights = '/BS/xxie2020/work/hoi3d/external/IPNet/experiments/IPNet_p5000_01_exp_id01/checkpoints/checkpoint_epoch_249.tar'
     # args.save_path = 'test_data'
     # args.res = 128
     # args.decoder_hidden_dim = 256
@@ -314,5 +319,7 @@ if __name__ == "__main__":
     # args.batch_points = 10000
     # args.display = True
     # args.gender = 'male'
+    config = load_config(args.config_path)
+    args.model_root = Path(config["SMPL_MODELS_PATH"])
 
     main(args)

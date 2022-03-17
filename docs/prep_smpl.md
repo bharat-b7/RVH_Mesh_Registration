@@ -41,7 +41,13 @@ To run the registration scripts, different files are required depending on wheth
 
 
 #### SMPL or SMPL-H body models
-For SMPL body model files `SMPL_*.pkl`, you can download from the [SMPL website](https://smpl.is.tue.mpg.de/download.php) and rename the model files accordingly. 
+For SMPL body model files `SMPL_*.pkl`, you can download from the [SMPL website](https://smpl.is.tue.mpg.de/download.php), once download and unzip finished, you can rename the model files in the following way to follow our convention:
+```
+basicmodel_f_lbs_10_207_0_v1.1.0.pkl -> SMPL_female.pkl
+basicmodel_m_lbs_10_207_0_v1.1.0.pkl -> SMPL_male.pkl
+basicmodel_neutral_lbs_10_207_0_v1.1.0.pkl -> SMPL_neutral.pkl
+```
+
 
 
 For SMPL-H body model files `SMPLH_*.pkl`, you can download from the [SMPL-H website](https://mano.is.tue.mpg.de/index.html) and place them to your model root accordingly.

@@ -5,7 +5,7 @@ Author: Ilya Petrov
 """
 import sys
 import json
-import yaml
+
 import argparse
 import pickle as pkl
 from pathlib import Path
@@ -17,41 +17,22 @@ import torch
 from pytorch3d.renderer import look_at_view_transform, FoVPerspectiveCameras
 
 sys.path.append(".")
-from utils.keypoints_3d_estimation.io import load_data
 from lib.body_objectives import batch_reprojection_loss_vcam
-from lib.smpl.wrapper_naive import SMPLNaiveWrapper
 from lib.smpl.wrapper_pytorch import SMPLPyTorchWrapperBatch
 from lib.smpl.priors.th_smpl_prior import get_prior
-
-
-def load_config(config_path):
-    with open(config_path, 'r') as fp:
-        try:
-            config = yaml.safe_load(fp)
-        except yaml.YAMLError as exc:
-            print(exc)
-
-    config = {k: Path(v) if isinstance(v, str) else v for k, v in config.items()}
-
-    return config
+from utils.configs import load_config
 
 
 def initialize_keypoints_3d(centers, num, smpl_models_path, device="cpu"):
     # load 25 keypoints from SMPL
-
-    # Get SMPL faces
-    naive_smpl = SMPLNaiveWrapper(model_root=smpl_models_path, gender='male')
-    smpl_faces = naive_smpl.get_faces()
-    th_faces = torch.tensor(smpl_faces.astype('float32'), dtype=torch.long).to(device)
-
-    prior = get_prior(smpl_models_path, gender='male', device=device)
+    prior = get_prior(smpl_models_path, gender='male')
 
     batch_sz = centers.shape[0]
     pose_init = torch.zeros((batch_sz, 72))
-    pose_init[:, 3:] = prior.mean
+    pose_init[:, 3:3+prior.mean.shape[-1]] = prior.mean
     betas, pose, trans = torch.zeros((batch_sz, 300)), pose_init, centers  # init SMPL with the translation
 
-    smpl = SMPLPyTorchWrapperBatch(smpl_models_path, batch_sz, betas, pose, trans, faces=th_faces).to(device)
+    smpl = SMPLPyTorchWrapperBatch(smpl_models_path, batch_sz, betas, pose, trans).to(device)
     J, face, hands = smpl.get_landmarks()
 
     if num == 25:
@@ -61,7 +42,7 @@ def initialize_keypoints_3d(centers, num, smpl_models_path, device="cpu"):
         return joints_all
 
 
-def load_keypoints_2d(keypoints_2d_file, device="cpu"):
+def load_keypoints_2d(keypoints_2d_file, device="cpu", tol=0.3):
     def prepare_keypoints(data_2d, keypoints_num, keypoints_key, device):
         # returns keypoints reshaped as follows: 1 x N x (3*n_views)
         keypoints = []
@@ -69,7 +50,8 @@ def load_keypoints_2d(keypoints_2d_file, device="cpu"):
             keypoints_view = np.array(data_2d[key][keypoints_key], dtype=np.float32)
             if keypoints_view.ndim == 1 or keypoints_view.shape[0] != keypoints_num:
                 keypoints_view = np.zeros((keypoints_num, 3), dtype=np.float32)
-
+            mask = keypoints_view[:, 2] < tol
+            keypoints_view[mask, 2] = 0. # low confidence keypoints not used
             keypoints.append(keypoints_view)
         # keypoints = [np.array(data_2d[key][keypoints_key][:1], dtype=np.float32) for key in sorted(data_2d.keys())]
         keypoints = np.squeeze(np.array(keypoints))
@@ -101,6 +83,24 @@ def load_keypoints_2d(keypoints_2d_file, device="cpu"):
 
     return body_2d, face_2d, hand_l_2d, hand_r_2d
 
+def compute_j3d_confidence(j2d):
+    """
+    compute the confidence of lifted 3d joints
+    Args:
+        j2d: (1, num_joints, 3*cam_views), numpy array
+
+    Returns: (1, num_joints), mean of 2d joints confidence
+
+    """
+    confidences = []
+    for joints in j2d:
+        ind = np.arange(2, joints.shape[-1], 3)
+        conf = joints[:, ind] # (N, cam_views)
+        mean_conf = np.sum(conf, -1) / np.sum(conf>0, -1)
+        mean_conf[np.isnan(mean_conf)] = 0.
+        confidences.append(mean_conf)
+    return np.array(confidences)
+
 
 def main(args):
     # Setup the environment
@@ -108,9 +108,11 @@ def main(args):
     np.seterr(all="ignore")
 
     # Load 2d pose
-    keypoints_2d, _, _, _ = load_keypoints_2d(args.keypoints_2d_path, device)
-    if keypoints_2d is None:
+    body_2d, face_2d, hand_l_2d, hand_r_2d = load_keypoints_2d(args.keypoints_2d_path, device)
+    if body_2d is None:
         raise RuntimeError("Incorrect 2D keypoints.")
+    keypoints_2d = torch.cat((body_2d, face_2d, hand_l_2d, hand_r_2d), 1) # lift all joints
+    # keypoints_2d = body_2d
     keypoints_num = keypoints_2d.shape[1]
 
     # Load scan to pose SMPL model
@@ -134,6 +136,7 @@ def main(args):
     # Setup optimization
     optimizer = torch.optim.Adam([keypoints_3d], 0.005, betas=(0.9, 0.999))
     iterations, steps_per_iter = 100, 30
+    # iterations, steps_per_iter = 1, 1
 
     for it in tqdm.tqdm(range(iterations)):
         for i in range(steps_per_iter):
@@ -145,6 +148,8 @@ def main(args):
 
     # Save results
     res = keypoints_3d.cpu().detach().numpy()
+    conf = compute_j3d_confidence(keypoints_2d.cpu().detach().numpy())
+    res = np.concatenate((res, np.expand_dims(conf, -1)), -1) # (1, num_joints, 4)
     args.results_path.parent.mkdir(parents=True, exist_ok=True)
     with args.results_path.open('w') as fp:
         json.dump(res[0].tolist(), fp, indent=4)

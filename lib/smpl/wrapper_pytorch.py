@@ -18,7 +18,7 @@ from .const import *
 class SMPLPyTorchWrapperBatch(nn.Module):
     def __init__(self, model_root, batch_sz,
                  betas=None, pose=None,
-                 trans=None, offsets=None, faces=None,
+                 trans=None, offsets=None,
                  gender='male', num_betas=300, hands=False,
                  device='cuda:0'):
         super(SMPLPyTorchWrapperBatch, self).__init__()

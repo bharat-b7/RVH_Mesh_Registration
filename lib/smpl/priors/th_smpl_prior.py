@@ -10,20 +10,12 @@ import torch
 import numpy as np
 
 
-def get_prior(model_root, gender='male', precomputed=True, device="cuda:0"):
+def get_prior(model_root, gender='male', precomputed=True):
     if precomputed:
         prior = Prior(sm=None, model_root=model_root)
         return prior['Generic']
     else:
-        from lib.smpl.wrapper_naive import SMPLNaiveWrapper
-
-        if gender == 'neutral':
-            dp_prior = SMPLNaiveWrapper(model_root, gender='male')
-        else:
-            dp_prior = SMPLNaiveWrapper(model_root, gender=gender)
-
-        prior = Prior(dp_prior.get_smpl(), device=device)
-        return prior['Generic']
+        raise NotImplemented
 
 
 class ThMahalanobis(object):

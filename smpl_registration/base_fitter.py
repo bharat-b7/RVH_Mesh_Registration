@@ -5,7 +5,7 @@ this can be inherited for fitting smplh, smph+d to scan, kinect point clouds etc
 Author: Xianghui, 12, January 2022
 """
 import torch
-from os.path import join, split
+from os.path import join, split, splitext
 from pytorch3d.structures import Meshes
 from pytorch3d.io import save_ply, load_ply, load_obj
 import pickle as pkl
@@ -14,11 +14,8 @@ import json
 from psbody.mesh import MeshViewer, Mesh
 from lib.smpl.priors.th_hand_prior import mean_hand_pose
 from lib.smpl.priors.th_smpl_prior import get_prior
-# from lib.smpl_paths import SmplPaths
-# from lib.smpl.wrapper_smplh import SMPLHPyTorchWrapperBatch
 from lib.smpl.wrapper_pytorch import SMPLPyTorchWrapperBatch
 from lib.smpl.const import *
-from lib.body_objectives import HAND_VISIBLE
 
 
 class BaseFitter(object):
@@ -28,8 +25,13 @@ class BaseFitter(object):
         self.save_name = save_name # suffix of the output file
         self.device = device
         self.hands = hands
+        self.save_name_base = 'smplh' if hands else 'smpl'
         if debug:
             self.mv = MeshViewer()
+        if self.hands:
+            print("Using SMPL-H model for registration")
+        else:
+            print("Using SMPL model for registration")
 
     def fit(self, scans, pose_files, gender='male', save_path=None):
         raise NotImplemented
@@ -153,7 +155,7 @@ class BaseFitter(object):
         th_smpl_meshes = self.smpl2meshes(smpl)
         mesh_paths, names = self.get_mesh_paths(save_name, save_path, scan_paths)
         self.save_meshes(th_smpl_meshes, mesh_paths)
-        self.save_meshes(th_scan_meshes, [join(save_path, n) for n in names])
+        # self.save_meshes(th_scan_meshes, [join(save_path, n) for n in names]) # save original scans
         # Save params
         self.save_smpl_params(names, save_path, smpl, save_name)
         return smpl.pose.cpu().detach().numpy(), smpl.betas.cpu().detach().numpy(), smpl.trans.cpu().detach().numpy()
@@ -179,7 +181,10 @@ class BaseFitter(object):
         for p, b, t, n in zip(smpl.pose.cpu().detach().numpy(), smpl.betas.cpu().detach().numpy(),
                               smpl.trans.cpu().detach().numpy(), names):
             smpl_dict = {'pose': p, 'betas': b, 'trans': t}
-            pkl.dump(smpl_dict, open(join(save_path, n.replace('.obj', f'_{save_name}.pkl')), 'wb'))
+            sfx = splitext(n)[1]
+            pkl_file = join(save_path, n.replace(sfx, f'_{save_name}.pkl'))
+            pkl.dump(smpl_dict, open(pkl_file, 'wb'))
+            print('SMPL parameters saved to', pkl_file)
 
     @staticmethod
     def backward_step(loss_dict, weight_dict, it):
@@ -206,25 +211,13 @@ class BaseFitter(object):
         Returns: a list of body keypoints
 
         """
-        th_no_right_hand_visible, th_no_left_hand_visible, th_pose_3d = [], [], []
-        for pose_file in pose_files:
-            with open(pose_file) as f:
-                pose_3d = json.load(f)
-                th_no_right_hand_visible.append(
-                    np.max(np.array(pose_3d['hand_right_keypoints_3d']).reshape(-1, 4)[:, 3]) < HAND_VISIBLE)
-                th_no_left_hand_visible.append(
-                    np.max(np.array(pose_3d['hand_left_keypoints_3d']).reshape(-1, 4)[:, 3]) < HAND_VISIBLE)
-
-                pose_3d['pose_keypoints_3d'] = torch.from_numpy(
-                    np.array(pose_3d['pose_keypoints_3d']).astype(np.float32).reshape(-1, 4))
-                pose_3d['face_keypoints_3d'] = torch.from_numpy(
-                    np.array(pose_3d['face_keypoints_3d']).astype(np.float32).reshape(-1, 4))
-                pose_3d['hand_right_keypoints_3d'] = torch.from_numpy(
-                    np.array(pose_3d['hand_right_keypoints_3d']).astype(np.float32).reshape(-1, 4))
-                pose_3d['hand_left_keypoints_3d'] = torch.from_numpy(
-                    np.array(pose_3d['hand_left_keypoints_3d']).astype(np.float32).reshape(-1, 4))
-            th_pose_3d.append(pose_3d)
-        return th_pose_3d
+        joints = []
+        for file in pose_files:
+            data = json.load(open(file))
+            J3d = np.array(data).reshape((-1, 4))
+            joints.append(J3d)
+        joints = np.stack(joints)
+        return torch.from_numpy(joints).float().to(self.device)
 
     @staticmethod
     def load_scans(scans, device='cuda:0'):
