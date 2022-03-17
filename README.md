@@ -8,8 +8,8 @@ This repository collects methods to register SMPL model to point clouds or 3D sc
 
 ## <a name="run-env"></a> Dependencies
 Most dependencies are included in *requirement.txt* file, the following modules need to be installed manually:
-1. MPI-IS Mesh library, see installation [here](https://github.com/MPI-IS/mesh).
-2. Openpose library. TODO. 
+1. MPI-IS Mesh library. See installation [here](https://github.com/MPI-IS/mesh).
+2. Openpose library. See [lifting 2D poses](docs/lift_kpts.md).
 
 ## <a name="prep-model"></a> Prepare model files
 We provide SMPL or SMPL+H registration in this repo. Depending on your model choice, you should prepare the corresponding model files, for details please check [here](docs/prep_smpl.md).
@@ -29,7 +29,7 @@ For more accurate registration, we recommend to first obtain 3D body keypoints f
 With the model files and 3D keypoints ready, you can run fitting with:
 ```
 python smpl_registration/fit_SMPLH.py [scan_path] [pose_file] [save_path] 
-[-gender male/female] [-mr root path to SMPLH model]
+[-gender male/female]
 [-hands optional: use SMPL-H]
 ```
 Example command using our sample data:
@@ -43,7 +43,7 @@ Fitting SMPLH+D is based on fitting SMPLH, hence the command is very similar, ex
 ```
 python smpl_registration/fit_SMPLH+D.py [scan_path] [pose_file] [save_path] 
 [-smpl_pkl existing SMPLH parameters] 
-[-gender male/female] [-mr root path to SMPLH model]
+[-gender male/female] 
 [-hands optional: use SMPL-H]
 ```
 Example command using our sample data:
@@ -59,7 +59,7 @@ Also you can obtain 3D joints following instructions [here](docs/lift_kpts.md).
 Run fitting:
 ```
 python smpl_registration/fit_SMPLH_pcloud.py [pc_path] [j3d_file] [pose_init] [save_path] 
-[-gender male/female] [-mr root path to SMPLH model]
+[-gender male/female]
 [-hands optional: use SMPL-H]
 ```
 Example command using our sample data:
