@@ -12,18 +12,19 @@ The scripts are located in ```utils/keypoints_3d_estimation```
 ### Multi-view rendering
 Script: ```utils/keypoints_3d_estimation/01_render_multiview.py```
 
-Sample command: ```python utils/keypoints_3d_estimation/01_render_multiview.py ../data/scan.obj -t ../data/scan_tex.jpg -r ../data/```
+Sample command:
+```python utils/keypoints_3d_estimation/01_render_multiview.py ../data/mesh_1/scan.obj -t ../data/mesh_1/scan_tex.jpg -r ../data/mesh_1```
 
 Script supports both meshes and point clouds
 
 ### 2D pose prediction
 Script: ```utils/keypoints_3d_estimation/02_predict_2d_pose.py```
 
-Sample command: ```python utils/keypoints_3d_estimation/02_predict_2d_pose.py ../data/scan_renders/ -r ../data/ -v```
+Sample command: ```python utils/keypoints_3d_estimation/02_predict_2d_pose.py ../data/mesh_1/scan_renders/ -r ../data/mesh_1 -v```
 
 Optionally hand and face joints can be predicted. 
 
 ### Lifting 2D pose to 3D
 Script: ```utils/keypoints_3d_estimation/03_lift_kepoints.py```
 
-Sample command: ```python utils/keypoints_3d_estimation/03_lift_keypoints.py ../data/scan.obj -k2 ../data/2D_pose.json -r ../data/3D_pose.json -cam ../data/scan_renders/p3d_render_data.pkl -c ./config.yml```
+Sample command: ```python utils/keypoints_3d_estimation/03_lift_keypoints.py ../data/mesh_1/scan.obj -k2 ../data/mesh_1/2D_pose.json -r ../data/mesh_1/3D_pose.json -cam ../data/mesh_1/scan_renders/p3d_render_data.pkl -c ./config.yml```
