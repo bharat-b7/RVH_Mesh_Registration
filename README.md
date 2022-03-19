@@ -58,7 +58,7 @@ Also you can obtain 3D joints following instructions [here](docs/lift_kpts.md).
 
 Run fitting:
 ```
-python smpl_registration/fit_SMPLH_pcloud.py [pc_path] [j3d_file] [pose_init] [save_path] 
+python smpl_registration/fit_SMPLH_pcloud.py [pc_path] [j3d_file] [save_path] [pose_init]
 [-gender male/female]
 [-hands optional: use SMPL-H]
 ```
