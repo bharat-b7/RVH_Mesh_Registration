@@ -92,6 +92,13 @@ python smpl_registration/fit_SMPLH_IPNet.py data/mesh_1/scan.obj data/mesh_1 -w 
     organization = {{Springer}},
     year = {2020},
 }
+@inproceedings{bhatnagar2020loopreg,
+    title = {LoopReg: Self-supervised Learning of Implicit Surface Correspondences, Pose and Shape for 3D Human Mesh Registration},
+    author = {Bhatnagar, Bharat Lal and Sminchisescu, Cristian and Theobalt, Christian and Pons-Moll, Gerard},
+    booktitle = {Advances in Neural Information Processing Systems ({NeurIPS})},
+    month = {December},
+    year = {2020},
+}
 ```
 
 ## License
