@@ -1,4 +1,4 @@
-# MPI Mesh registration repository
+# RVH Mesh registration repository
 This repository collects methods to register SMPL model to point clouds or 3D scans.
 
 #### Contents
