@@ -1,0 +1,54 @@
+diff --git a/include/openpose/core/datum.hpp b/include/openpose/core/datum.hpp
+index da93c69..7aec4b5 100644
+--- a/include/openpose/core/datum.hpp
++++ b/include/openpose/core/datum.hpp
+@@ -332,7 +332,33 @@ namespace op
+          */
+         Datum clone() const;
+ 
+-
++		 /**
++         * Quick fix to overcome Deallocating None error in python
++         */
++         Array<float> getPoseKeypoints() {
++            if(!poseKeypoints.empty())
++                return poseKeypoints;
++            else
++                return Array<float>(1,-1000);
++         }
++         Array<float> getFaceKeypoints() {
++            if(!faceKeypoints.empty())
++                return faceKeypoints;
++            else
++                return Array<float>(1,-1000);
++         }
++         Array<float> getHandKeypointsL() {
++            if(!handKeypoints.empty())
++                return handKeypoints[0];
++            else
++                return Array<float>(1,-1000);
++         }
++         Array<float> getHandKeypointsR() {
++            if(!handKeypoints.empty())
++                return handKeypoints[1];
++            else
++                return Array<float>(1,-1000);
++         }
+ 
+ 
+ 
+diff --git a/python/openpose/openpose_python.cpp b/python/openpose/openpose_python.cpp
+index df65522..802d867 100644
+--- a/python/openpose/openpose_python.cpp
++++ b/python/openpose/openpose_python.cpp
+@@ -359,6 +359,10 @@ namespace op
+         // Datum Object
+         py::class_<Datum, std::shared_ptr<Datum>>(m, "Datum")
+             .def(py::init<>())
++            .def("getPoseKeypoints", &Datum::getPoseKeypoints)
++            .def("getFaceKeypoints", &Datum::getFaceKeypoints)
++            .def("getHandKeypointsL", &Datum::getHandKeypointsL)
++            .def("getHandKeypointsR", &Datum::getHandKeypointsR)
+             .def_readwrite("id", &Datum::id)
+             .def_readwrite("subId", &Datum::subId)
+             .def_readwrite("subIdMax", &Datum::subIdMax)
