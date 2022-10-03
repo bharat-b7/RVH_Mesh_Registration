@@ -220,7 +220,7 @@ class BaseFitter(object):
         return torch.from_numpy(joints).float().to(self.device)
 
     @staticmethod
-    def load_scans(scans, device='cuda:0'):
+    def load_scans(scans, device='cuda:0', ret_cent=False):
         verts, faces, centers = [], [], []
         for scan in scans:
             print('scan path ...', scan)
@@ -231,7 +231,10 @@ class BaseFitter(object):
                 f = f[0]  # see pytorch3d doc
             verts.append(v)
             faces.append(f)
+            centers.append(torch.mean(v, 0))
         th_scan_meshes = Meshes(verts, faces).to(device)
+        if ret_cent:
+            return th_scan_meshes, torch.stack(centers, 0).to(device)
         return th_scan_meshes
 
     def viz_fitting(self, smpl, th_scan_meshes, ind=0,

@@ -28,12 +28,12 @@ class SMPLHFitter(BaseFitter):
         # Batch size
         batch_sz = len(scans)
 
-        # init smpl
-        smpl = self.init_smpl(batch_sz, gender)
 
         # Load scans and center them. Once smpl is registered, move it accordingly.
-        # Do not forget to change the location of 3D joints/ landmarks accordingly.
-        th_scan_meshes = self.load_scans(scans)
+        th_scan_meshes, centers = self.load_scans(scans, ret_cent=True)
+
+        # init smpl
+        smpl = self.init_smpl(batch_sz, gender, trans=centers) # add centers as initial SMPL translation
 
         # Set optimization hyper parameters
         iterations, pose_iterations, steps_per_iter, pose_steps_per_iter = 5, 5, 30, 30
