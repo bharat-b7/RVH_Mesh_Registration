@@ -86,6 +86,7 @@ python smpl_registration/fit_SMPLH_IPNet.py data/mesh_1/scan.obj data/mesh_1 -w 
 ```
 
 ## Cite us:
+If you use this code please cite: </br>
 ```
 @inproceedings{bhatnagar2020ipnet,
     title = {Combining Implicit Function Learning and Parametric Models for 3D Human Reconstruction},
