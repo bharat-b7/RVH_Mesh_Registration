@@ -1,5 +1,8 @@
 # RVH Mesh registration repository
 This repository collects methods to register SMPL model to point clouds or 3D scans.
+If you use this code please cite: </br>
+Combining Implicit Function Learning and Parametric Models for 3D Human Reconstruction, ECCV'20.</br>
+LoopReg: Self-supervised Learning of Implicit Surface Correspondences, Pose and Shape for 3D Human Mesh Registration, NeurIPS'20.
 
 #### Contents
 1. [Dependencies](#a-namerun-enva-running-environment)
@@ -83,6 +86,7 @@ python smpl_registration/fit_SMPLH_IPNet.py data/mesh_1/scan.obj data/mesh_1 -w 
 ```
 
 ## Cite us:
+If you use this code please cite: </br>
 ```
 @inproceedings{bhatnagar2020ipnet,
     title = {Combining Implicit Function Learning and Parametric Models for 3D Human Reconstruction},
