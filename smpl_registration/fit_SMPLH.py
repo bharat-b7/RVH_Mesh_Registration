@@ -56,7 +56,6 @@ class SMPLHFitter(BaseFitter):
     def optimize_pose_shape(self, th_scan_meshes, smpl, iterations, steps_per_iter, th_pose_3d=None):
         # Optimizer
         optimizer = torch.optim.Adam([smpl.trans, smpl.betas, smpl.pose], 0.02, betas=(0.9, 0.999))
-
         # Get loss_weights
         weight_dict = self.get_loss_weights()
 
@@ -179,11 +178,12 @@ class SMPLHFitter(BaseFitter):
 
         # losses
         loss = dict()
-        loss['pose_pr'] = torch.mean(prior(smpl.pose))
         # loss['pose_obj'] = batch_get_pose_obj(th_pose_3d, smpl, init_pose=False)
         # 3D joints loss
         J, face, hands = smpl.get_landmarks()
         joints = self.compose_smpl_joints(J, face, hands, th_pose_3d)
+        loss['pose_pr'] = torch.mean(prior(smpl.pose))
+        loss['betas'] = torch.mean(smpl.betas ** 2)
         j3d_loss = batch_3djoints_loss(th_pose_3d, joints)
         loss['pose_obj'] = j3d_loss
         return loss
@@ -192,7 +192,7 @@ class SMPLHFitter(BaseFitter):
         """Set loss weights"""
         loss_weight = {'s2m': lambda cst, it: 20. ** 2 * cst * (1 + it),
                        'm2s': lambda cst, it: 20. ** 2 * cst / (1 + it),
-                       'betas': lambda cst, it: 10. ** 0 * cst / (1 + it),
+                       'betas': lambda cst, it: 10. ** 1.0 * cst / (1 + it),
                        'offsets': lambda cst, it: 10. ** -1 * cst / (1 + it),
                        'pose_pr': lambda cst, it: 10. ** -5 * cst / (1 + it),
                        'hand': lambda cst, it: 10. ** -5 * cst / (1 + it),

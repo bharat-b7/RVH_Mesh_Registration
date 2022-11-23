@@ -101,7 +101,8 @@ class SMPL_Layer(Module):
 
         # Below does: v_shaped = v_template + shapedirs * betas
         # If shape parameters are not provided
-        if th_betas is None or bool(torch.norm(th_betas) == 0):
+        # if th_betas is None or bool(torch.norm(th_betas) == 0):
+        if th_betas is None:
             th_v_shaped = self.th_v_template + torch.matmul(
                 self.th_shapedirs, self.th_betas.transpose(1, 0)).permute(2, 0, 1)
             th_j = torch.matmul(self.th_J_regressor, th_v_shaped).repeat(

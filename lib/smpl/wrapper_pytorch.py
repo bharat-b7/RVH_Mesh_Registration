@@ -171,8 +171,6 @@ class SMPLPyTorchWrapperBatchSplitParams(nn.Module):
             torch_pose_obj_data(self.model_root, batch_size=batch_sz)
 
     def forward(self):
-        # self.betas = torch.cat([self.top_betas, self.other_betas], axis=1)
-        # self.pose = torch.cat([self.global_pose, self.other_pose], axis=1)
         self.betas = torch.cat([self.top_betas, self.other_betas], axis=1)
         self.pose = torch.cat([self.global_pose, self.body_pose, self.hand_pose], axis=1)
 
@@ -184,11 +182,7 @@ class SMPLPyTorchWrapperBatchSplitParams(nn.Module):
 
     def get_landmarks(self):
         """Computes body25 joints for SMPL along with hand and facial landmarks"""
-
-        verts, _, _, _ = self.smpl(self.pose,
-                                   th_betas=self.betas,
-                                   th_trans=self.trans,
-                                   th_offsets=self.offsets)
+        verts, _, _, _ = self.forward()
 
         J = batch_sparse_dense_matmul(self.body25_reg_torch, verts)
         face = batch_sparse_dense_matmul(self.face_reg_torch, verts)

@@ -27,7 +27,7 @@ class BaseFitter(object):
         self.hands = hands
         self.save_name_base = 'smplh' if hands else 'smpl'
         if debug:
-            self.mv = MeshViewer()
+            self.mv = MeshViewer(window_width=512, window_height=512)
         if self.hands:
             print("Using SMPL-H model for registration")
         else:
