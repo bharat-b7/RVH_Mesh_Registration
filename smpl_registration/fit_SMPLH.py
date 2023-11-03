@@ -227,6 +227,6 @@ if __name__ == "__main__":
     # args.save_path = 'data/mesh_1'
     # args.gender = 'male'
     config = load_config(args.config_path)
-    args.model_root = Path(config["SMPL_MODELS_PATH"])
+    args.model_root = Path(config["SMPL_ASSETS_PATH"])
 
     main(args)

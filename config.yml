@@ -1,6 +1,6 @@
 # SMPL directories
-SMPL_MODELS_PATH: "/BS/xxie2020/static00/mysmpl/smplh"
-SMPL_ASSETS_PATH: "/BS/xxie2020/static00/mysmpl/smpl/assets"
+SMPL_MODELS_PATH: "."
+SMPL_ASSETS_PATH: "./assets"
 
 # Keypoints directories for kinect
 KEYPOINTS_2D_ROOT: "/home/data/hot_kinect_2d_joints/"
