@@ -19,7 +19,9 @@ from lib.smpl.const import *
 
 
 class BaseFitter(object):
-    def __init__(self, model_root, device='cuda:0', save_name='smpl', debug=False, hands=True):
+    def __init__(self, model_root, device=None, save_name='smpl', debug=False, hands=True):
+        if device is None:
+            device = "cpu" if not torch.cuda.is_available() else "cuda"
         self.model_root = model_root # root path to the smpl or smplh model
         self.debug = debug
         self.save_name = save_name # suffix of the output file
@@ -85,7 +87,7 @@ class BaseFitter(object):
         # smpl_faces = sp.get_faces()
         # th_faces = torch.tensor(smpl_faces.astype('float32'), dtype=torch.long).to(self.device)
         num_betas = 10
-        prior = get_prior(self.model_root, gender=gender)
+        prior = get_prior(self.model_root, gender=gender, device=self.device)
         total_pose_num = SMPLH_POSE_PRAMS_NUM if self.hands else SMPL_POSE_PRAMS_NUM
         pose_init = torch.zeros((batch_sz, total_pose_num))
         if pose is None:

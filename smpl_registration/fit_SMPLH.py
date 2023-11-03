@@ -30,7 +30,8 @@ class SMPLHFitter(BaseFitter):
 
 
         # Load scans and center them. Once smpl is registered, move it accordingly.
-        th_scan_meshes, centers = self.load_scans(scans, ret_cent=True)
+        device = "cpu" if not torch.cuda.is_available() else "cuda"
+        th_scan_meshes, centers = self.load_scans(scans, device=device, ret_cent=True)
 
         # init smpl
         smpl = self.init_smpl(batch_sz, gender, trans=centers) # add centers as initial SMPL translation
@@ -83,7 +84,7 @@ class SMPLHFitter(BaseFitter):
 
     def forward_pose_shape(self, th_scan_meshes, smpl, th_pose_3d=None):
         # Get pose prior
-        prior = get_prior(self.model_root, smpl.gender)
+        prior = get_prior(self.model_root, smpl.gender, device=self.device)
 
         # forward
         verts, _, _, _ = smpl()
@@ -174,7 +175,7 @@ class SMPLHFitter(BaseFitter):
         currently no prior weight implemented for smplh
         """
         # Get pose prior
-        prior = get_prior(self.model_root, smpl.gender)
+        prior = get_prior(self.model_root, smpl.gender, device=self.device)
 
         # losses
         loss = dict()
