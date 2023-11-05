@@ -233,8 +233,11 @@ class SMPLHFitter(BaseFitter):
 
 def main(args):
     fitter = SMPLHFitter(args.model_root, debug=args.display, hands=args.hands)
-    fitter.fit([args.scan_path], [args.pose_file], args.gender, args.save_path)
-
+    if args.pose_file is None:
+        pose_files = None
+    else:
+        pose_files = [args.pose_file]
+    fitter.fit([args.scan_path], pose_files, args.gender, args.save_path)
 
 if __name__ == "__main__":
     import argparse
@@ -243,9 +246,9 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Run Model")
     parser.add_argument("scan_path", type=str, help="path to the 3d scans")
-    parser.add_argument("pose_file", type=str, help="3d body joints file")
     parser.add_argument("save_path", type=str, help="save path for all scans")
     parser.add_argument("-gender", type=str, default="male")  # can be female
+    parser.add_argument("--pose_file", type=str, help="3d body joints file", default=None)
     parser.add_argument("--display", default=False, action="store_true")
     parser.add_argument(
         "--config-path", "-c", type=Path, default="config.yml", help="Path to yml file with config"
