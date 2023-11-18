@@ -25,7 +25,21 @@ from smpl_registration.base_fitter import BaseFitter
 
 
 class SMPLHFitter(BaseFitter):
-    def fit(self, scans, pose_files, gender="male", save_path=None):
+    def fit(
+        self,
+        scans: list[str],
+        pose_files: None | list[str],
+        gender: str = "male",
+        save_path: None | str = None,
+    ):
+        """Fit smpl to scans.
+        
+        Args:
+            scans: list of paths to scans
+            pose_files: list of paths to 3d body joints
+            gender: gender of smpl
+            save_path: path to save optimized smpl parameters
+        """
         # Batch size
         batch_sz = len(scans)
 
@@ -63,6 +77,7 @@ class SMPLHFitter(BaseFitter):
     def optimize_pose_shape(
         self, th_scan_meshes, smpl, iterations, steps_per_iter, th_pose_3d=None
     ):
+        """Optimize pose and shape of smpl."""
         # Optimizer
         optimizer = torch.optim.Adam([smpl.trans, smpl.betas, smpl.pose], 0.02, betas=(0.9, 0.999))
         # Get loss_weights
@@ -238,6 +253,7 @@ def main(args):
     else:
         pose_files = [args.pose_file]
     fitter.fit([args.scan_path], pose_files, args.gender, args.save_path)
+
 
 if __name__ == "__main__":
     import argparse
