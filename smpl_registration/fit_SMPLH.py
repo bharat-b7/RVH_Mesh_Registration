@@ -17,6 +17,8 @@ from pytorch3d.loss import point_mesh_face_distance
 from pytorch3d.structures import Meshes, Pointclouds
 from tqdm import tqdm
 
+from typing import Optional
+
 from lib.body_objectives import batch_3djoints_loss
 from lib.smpl.priors.th_hand_prior import HandPrior
 from lib.smpl.priors.th_smpl_prior import get_prior
@@ -28,9 +30,9 @@ class SMPLHFitter(BaseFitter):
     def fit(
         self,
         scans: list[str],
-        pose_files: None | list[str],
+        pose_files: Optional[list[str]],
         gender: str = "male",
-        save_path: None | str = None,
+        save_path: Optional[str] = None,
     ):
         """Fit smpl to scans.
         
