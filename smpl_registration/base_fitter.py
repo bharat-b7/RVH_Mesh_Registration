@@ -1,33 +1,43 @@
-"""
-base smpl fitter class to handle data io, load smpl, output saving etc. so that they can be easily reused later
-this can be inherited for fitting smplh, smph+d to scan, kinect point clouds etc.
+"""Base smpl fitter class to handle data io, load smpl, output saving etc. so that they can be
+easily reused later this can be inherited for fitting smplh, smph+d to scan, kinect point clouds
+etc.
 
 Author: Xianghui, 12, January 2022
 """
-import torch
-from os.path import join, split, splitext
-from pytorch3d.structures import Meshes
-from pytorch3d.io import save_ply, load_ply, load_obj
-import pickle as pkl
-import numpy as np
 import json
-from psbody.mesh import MeshViewer, Mesh
+import pickle as pkl
+from os.path import join, split, splitext
+from typing import Callable, Optional
+
+import numpy as np
+import torch
+from psbody.mesh import Mesh, MeshViewer
+from pytorch3d.io import load_obj, load_ply, save_ply
+from pytorch3d.structures import Meshes
+
+from lib.smpl.const import *
 from lib.smpl.priors.th_hand_prior import mean_hand_pose
 from lib.smpl.priors.th_smpl_prior import get_prior
 from lib.smpl.wrapper_pytorch import SMPLPyTorchWrapperBatch
-from lib.smpl.const import *
 
 
-class BaseFitter(object):
-    def __init__(self, model_root, device=None, save_name='smpl', debug=False, hands=True):
+class BaseFitter:
+    def __init__(
+        self,
+        model_root: str,
+        device: Optional[str] = None,
+        save_name: str = "smpl",
+        debug: bool = False,
+        hands: bool = True,
+    ):
         if device is None:
             device = "cpu" if not torch.cuda.is_available() else "cuda"
-        self.model_root = model_root # root path to the smpl or smplh model
+        self.model_root = model_root  # root path to the smpl or smplh model
         self.debug = debug
-        self.save_name = save_name # suffix of the output file
+        self.save_name = save_name  # suffix of the output file
         self.device = device
         self.hands = hands
-        self.save_name_base = 'smplh' if hands else 'smpl'
+        self.save_name_base = "smplh" if hands else "smpl"
         if debug:
             self.mv = MeshViewer(window_width=512, window_height=512)
         if self.hands:
@@ -35,10 +45,12 @@ class BaseFitter(object):
         else:
             print("Using SMPL model for registration")
 
-    def fit(self, scans, pose_files, gender='male', save_path=None):
+    def fit(self, scans, pose_files: list[str], gender: str = "male", save_path=None):
         raise NotImplemented
 
-    def optimize_pose_shape(self, th_scan_meshes, smpl, iterations, steps_per_iter, th_pose_3d=None):
+    def optimize_pose_shape(
+        self, th_scan_meshes, smpl, iterations, steps_per_iter, th_pose_3d=None
+    ):
         """
         optimize smpl pose and shape parameters together
         Args:
@@ -53,8 +65,9 @@ class BaseFitter(object):
         """
         raise NotImplemented
 
-    def optimize_pose_only(self, th_scan_meshes, smpl, iterations,
-                           steps_per_iter, th_pose_3d, prior_weight=None):
+    def optimize_pose_only(
+        self, th_scan_meshes, smpl, iterations, steps_per_iter, th_pose_3d, prior_weight=None
+    ):
         """
         Initially we want to only optimize the global rotation of SMPL. Next we optimize full pose.
         We optimize pose based on the 3D keypoints in th_pose_3d.
@@ -71,7 +84,15 @@ class BaseFitter(object):
         """
         raise NotImplemented
 
-    def init_smpl(self, batch_sz, gender, pose=None, betas=None, trans=None, flip=False):
+    def init_smpl(
+        self,
+        batch_sz: int,
+        gender: str,
+        pose: Optional[torch.Tensor] = None,
+        betas: Optional[torch.Tensor] = None,
+        trans: Optional[torch.Tensor] = None,
+        flip: Optional[bool] = False,
+    ):
         """
         initialize a smpl batch model
         Args:
@@ -111,13 +132,21 @@ class BaseFitter(object):
         # Init SMPL, pose with mean smpl pose, as in ch.registration
         # smpl = SMPLHPyTorchWrapperBatch(self.model_root, batch_sz, betas, pose, trans,
         #                                 num_betas=num_betas, device=self.device, gender=gender).to(self.device)
-        smpl = SMPLPyTorchWrapperBatch(self.model_root, batch_sz, betas, pose, trans,
-                                        num_betas=num_betas, device=self.device,
-                                       gender=gender, hands=self.hands).to(self.device)
+        smpl = SMPLPyTorchWrapperBatch(
+            self.model_root,
+            batch_sz,
+            betas,
+            pose,
+            trans,
+            num_betas=num_betas,
+            device=self.device,
+            gender=gender,
+            hands=self.hands,
+        ).to(self.device)
         return smpl
 
     @staticmethod
-    def load_smpl_params(pkl_files):
+    def load_smpl_params(pkl_files: list[str]):
         """
         load smpl params from file
         Args:
@@ -128,9 +157,9 @@ class BaseFitter(object):
         """
         pose, betas, trans = [], [], []
         for spkl in pkl_files:
-            smpl_dict = pkl.load(open(spkl, 'rb'), encoding='latin-1')
-            p, b, t = smpl_dict['pose'], smpl_dict['betas'], smpl_dict['trans']
-            pose.append(p) # smplh only allows 10 shape parameters
+            smpl_dict = pkl.load(open(spkl, "rb"), encoding="latin-1")
+            p, b, t = smpl_dict["pose"], smpl_dict["betas"], smpl_dict["trans"]
+            pose.append(p)  # smplh only allows 10 shape parameters
             # if len(b) == 10:
             #     temp = np.zeros((300,))
             #     temp[:10] = b
@@ -141,26 +170,38 @@ class BaseFitter(object):
         return pose, betas, trans
 
     def get_loss_weights(self):
-        """Set loss weights"""
-        loss_weight = {'s2m': lambda cst, it: 10. ** 2 * cst * (1 + it),
-                       'm2s': lambda cst, it: 10. ** 2 * cst / (1 + it),
-                       'betas': lambda cst, it: 10. ** 0 * cst / (1 + it),
-                       'offsets': lambda cst, it: 10. ** -1 * cst / (1 + it),
-                       'pose_pr': lambda cst, it: 10. ** -5 * cst / (1 + it),
-                       'hand': lambda cst, it: 10. ** -5 * cst / (1 + it),
-                       'lap': lambda cst, it: cst / (1 + it),
-                       'pose_obj': lambda cst, it: 10. ** 2 * cst / (1 + it)
-                       }
+        """Set loss weights."""
+        loss_weight = {
+            "s2m": lambda cst, it: 10.0**2 * cst * (1 + it),
+            "m2s": lambda cst, it: 10.0**2 * cst / (1 + it),
+            "betas": lambda cst, it: 10.0**0 * cst / (1 + it),
+            "offsets": lambda cst, it: 10.0**-1 * cst / (1 + it),
+            "pose_pr": lambda cst, it: 10.0**-5 * cst / (1 + it),
+            "hand": lambda cst, it: 10.0**-5 * cst / (1 + it),
+            "lap": lambda cst, it: cst / (1 + it),
+            "pose_obj": lambda cst, it: 10.0**2 * cst / (1 + it),
+        }
         return loss_weight
 
-    def save_outputs(self, save_path, scan_paths, smpl, th_scan_meshes, save_name='smpl'):
+    def save_outputs(
+        self,
+        save_path: str,
+        scan_paths: list[str],
+        smpl: torch.nn.Module,
+        th_scan_meshes,
+        save_name="smpl",
+    ):
         th_smpl_meshes = self.smpl2meshes(smpl)
         mesh_paths, names = self.get_mesh_paths(save_name, save_path, scan_paths)
         self.save_meshes(th_smpl_meshes, mesh_paths)
         # self.save_meshes(th_scan_meshes, [join(save_path, n) for n in names]) # save original scans
         # Save params
         self.save_smpl_params(names, save_path, smpl, save_name)
-        return smpl.pose.cpu().detach().numpy(), smpl.betas.cpu().detach().numpy(), smpl.trans.cpu().detach().numpy()
+        return (
+            smpl.pose.cpu().detach().numpy(),
+            smpl.betas.cpu().detach().numpy(),
+            smpl.trans.cpu().detach().numpy(),
+        )
 
     def smpl2meshes(self, smpl):
         "convert smpl batch to pytorch3d meshes"
@@ -173,23 +214,31 @@ class BaseFitter(object):
         # Save meshes
         mesh_paths = []
         for n in names:
-            if n.endswith('.obj'):
-                mesh_paths.append(join(save_path, n.replace('.obj', f'_{save_name}.ply')))
+            if n.endswith(".obj"):
+                mesh_paths.append(join(save_path, n.replace(".obj", f"_{save_name}.ply")))
             else:
-                mesh_paths.append(join(save_path, n.replace('.ply', f'_{save_name}.ply')))
+                mesh_paths.append(join(save_path, n.replace(".ply", f"_{save_name}.ply")))
         return mesh_paths, names
 
     def save_smpl_params(self, names, save_path, smpl, save_name):
-        for p, b, t, n in zip(smpl.pose.cpu().detach().numpy(), smpl.betas.cpu().detach().numpy(),
-                              smpl.trans.cpu().detach().numpy(), names):
-            smpl_dict = {'pose': p, 'betas': b, 'trans': t}
+        for p, b, t, n in zip(
+            smpl.pose.cpu().detach().numpy(),
+            smpl.betas.cpu().detach().numpy(),
+            smpl.trans.cpu().detach().numpy(),
+            names,
+        ):
+            smpl_dict = {"pose": p, "betas": b, "trans": t}
             sfx = splitext(n)[1]
-            pkl_file = join(save_path, n.replace(sfx, f'_{save_name}.pkl'))
-            pkl.dump(smpl_dict, open(pkl_file, 'wb'))
-            print('SMPL parameters saved to', pkl_file)
+            pkl_file = join(save_path, n.replace(sfx, f"_{save_name}.pkl"))
+            pkl.dump(smpl_dict, open(pkl_file, "wb"))
+            print("SMPL parameters saved to", pkl_file)
 
     @staticmethod
-    def backward_step(loss_dict, weight_dict, it):
+    def backward_step(
+        loss_dict: dict[str, torch.tensor],
+        weight_dict: dict[str, Callable[[float, int], float]],
+        it: int,
+    ):
         w_loss = dict()
         for k in loss_dict:
             w_loss[k] = weight_dict[k](loss_dict[k], it)
@@ -200,11 +249,11 @@ class BaseFitter(object):
 
     @staticmethod
     def save_meshes(meshes, save_paths):
-        print('Mesh saved at', save_paths[0])
+        print("Mesh saved at", save_paths[0])
         for m, s in zip(meshes, save_paths):
             save_ply(s, m.verts_list()[0].cpu(), m.faces_list()[0].cpu())
 
-    def load_j3d(self, pose_files):
+    def load_j3d(self, pose_files: list[str]):
         """
         load 3d body keypoints
         Args:
@@ -222,11 +271,11 @@ class BaseFitter(object):
         return torch.from_numpy(joints).float().to(self.device)
 
     @staticmethod
-    def load_scans(scans, device='cuda:0', ret_cent=False):
+    def load_scans(scans, device="cuda:0", ret_cent=False):
         verts, faces, centers = [], [], []
         for scan in scans:
-            print('scan path ...', scan)
-            if scan.endswith('.ply'):
+            print("scan path ...", scan)
+            if scan.endswith(".ply"):
                 v, f = load_ply(scan)
             else:
                 v, f, _ = load_obj(scan)
@@ -239,12 +288,14 @@ class BaseFitter(object):
             return th_scan_meshes, torch.stack(centers, 0).to(device)
         return th_scan_meshes
 
-    def viz_fitting(self, smpl, th_scan_meshes, ind=0,
-                    smpl_vc=np.array([0, 1, 0]), **kwargs):
+    def viz_fitting(self, smpl, th_scan_meshes, ind=0, smpl_vc=np.array([0, 1, 0]), **kwargs):
         verts, _, _, _ = smpl()
         smpl_mesh = Mesh(v=verts[ind].cpu().detach().numpy(), f=smpl.faces.cpu().numpy())
-        scan_mesh = Mesh(v=th_scan_meshes.verts_list()[ind].cpu().detach().numpy(),
-                         f=th_scan_meshes.faces_list()[ind].cpu().numpy(), vc=smpl_vc)
+        scan_mesh = Mesh(
+            v=th_scan_meshes.verts_list()[ind].cpu().detach().numpy(),
+            f=th_scan_meshes.faces_list()[ind].cpu().numpy(),
+            vc=smpl_vc,
+        )
         self.mv.set_dynamic_meshes([scan_mesh, smpl_mesh])
 
     def copy_smpl_params(self, split_smpl, smpl):

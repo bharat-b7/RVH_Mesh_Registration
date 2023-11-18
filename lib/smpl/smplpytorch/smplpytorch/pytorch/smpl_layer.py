@@ -7,22 +7,30 @@ import os
 
 import numpy as np
 import torch
-from torch.nn import Module
 
-from lib.smpl.smplpytorch.smplpytorch.native.webuser.serialization import ready_arguments
-from lib.smpl.smplpytorch.smplpytorch.pytorch.tensutils import \
-    (th_posemap_axisang, th_with_zeros, th_pack, make_list, subtract_flat_id)
+from lib.smpl.smplpytorch.smplpytorch.native.webuser.serialization import (
+    ready_arguments,
+)
+from lib.smpl.smplpytorch.smplpytorch.pytorch.tensutils import (
+    make_list,
+    subtract_flat_id,
+    th_pack,
+    th_posemap_axisang,
+    th_with_zeros,
+)
 
 
-class SMPL_Layer(Module):
-    __constants__ = ['kintree_parents', 'gender', 'center_idx', 'num_joints']
+class SMPL_Layer(torch.nn.Module):
+    __constants__ = ["kintree_parents", "gender", "center_idx", "num_joints"]
 
-    def __init__(self,
-                 center_idx=None,
-                 gender='neutral',
-                 model_root='smpl/native/models',
-                 num_betas=300,
-                 hands=False):
+    def __init__(
+        self,
+        center_idx=None,
+        gender="neutral",
+        model_root="smpl/native/models",
+        num_betas=300,
+        hands=False,
+    ):
         """
         Args:
             center_idx: index of center joint in our computations,
@@ -37,7 +45,10 @@ class SMPL_Layer(Module):
         self.model_root = model_root
         self.hands = hands
         if self.hands:
-            assert self.gender in ['male', 'female'], 'SMPL-H model only supports male or female, not {}'.format(self.gender)
+            assert self.gender in [
+                "male",
+                "female",
+            ], f"SMPL-H model only supports male or female, not {self.gender}"
             self.model_path = os.path.join(model_root, f"SMPLH_{self.gender}.pkl")
         else:
             self.model_folder = os.path.join(model_root, "models_v1.0.0/models")
@@ -49,39 +60,37 @@ class SMPL_Layer(Module):
         #     # self.model_path = os.path.join(model_root, 'female_model.pkl')
         # elif gender == 'male':
         #     self.model_path = os.path.join(self.model_folder, 'basicmodel_m_lbs_10_207_0_v1.0.0.pkl')
-            # self.model_path = os.path.join(model_root, 'male_model.pkl')
+        # self.model_path = os.path.join(model_root, 'male_model.pkl')
 
         smpl_data = ready_arguments(self.model_path)
         self.smpl_data = smpl_data
 
-        self.register_buffer('th_betas',
-                             torch.Tensor(smpl_data['betas'].r).unsqueeze(0))
-        self.register_buffer('th_shapedirs',
-                             torch.Tensor(smpl_data['shapedirs'][:, :, :num_betas].r))
-        self.register_buffer('th_posedirs',
-                             torch.Tensor(smpl_data['posedirs'].r))
+        self.register_buffer("th_betas", torch.Tensor(smpl_data["betas"].r).unsqueeze(0))
         self.register_buffer(
-            'th_v_template',
-            torch.Tensor(smpl_data['v_template'].r).unsqueeze(0))
+            "th_shapedirs", torch.Tensor(smpl_data["shapedirs"][:, :, :num_betas].r)
+        )
+        self.register_buffer("th_posedirs", torch.Tensor(smpl_data["posedirs"].r))
+        self.register_buffer("th_v_template", torch.Tensor(smpl_data["v_template"].r).unsqueeze(0))
         self.register_buffer(
-            'th_J_regressor',
-            torch.Tensor(np.array(smpl_data['J_regressor'].toarray())))
-        self.register_buffer('th_weights',
-                             torch.Tensor(smpl_data['weights'].r))
-        self.register_buffer('th_faces',
-                             torch.Tensor(smpl_data['f'].astype(np.int32)).long())
+            "th_J_regressor", torch.Tensor(np.array(smpl_data["J_regressor"].toarray()))
+        )
+        self.register_buffer("th_weights", torch.Tensor(smpl_data["weights"].r))
+        self.register_buffer("th_faces", torch.Tensor(smpl_data["f"].astype(np.int32)).long())
 
         # Kinematic chain params
-        self.kintree_table = smpl_data['kintree_table']
+        self.kintree_table = smpl_data["kintree_table"]
         parents = list(self.kintree_table[0].tolist())
         self.kintree_parents = parents
         self.num_joints = len(parents)  # 24
 
-    def forward(self,
-                th_pose_axisang,
-                th_betas=torch.zeros(1),
-                th_trans=torch.zeros(1, 3),
-                th_offsets=None, scale=1.):
+    def forward(
+        self,
+        th_pose_axisang,
+        th_betas=torch.zeros(1),
+        th_trans=torch.zeros(1, 3),
+        th_offsets=None,
+        scale=1.0,
+    ):
         """
         Args:
         th_pose_axisang (Tensor (batch_size x 72)): pose parameters in axis-angle representation
@@ -104,16 +113,19 @@ class SMPL_Layer(Module):
         # if th_betas is None or bool(torch.norm(th_betas) == 0):
         if th_betas is None:
             th_v_shaped = self.th_v_template + torch.matmul(
-                self.th_shapedirs, self.th_betas.transpose(1, 0)).permute(2, 0, 1)
-            th_j = torch.matmul(self.th_J_regressor, th_v_shaped).repeat(
-                batch_size, 1, 1)
+                self.th_shapedirs, self.th_betas.transpose(1, 0)
+            ).permute(2, 0, 1)
+            th_j = torch.matmul(self.th_J_regressor, th_v_shaped).repeat(batch_size, 1, 1)
         else:
-            th_v_shaped = self.th_v_template + torch.matmul(self.th_shapedirs, th_betas.transpose(1, 0)).permute(2, 0, 1)
+            th_v_shaped = self.th_v_template + torch.matmul(
+                self.th_shapedirs, th_betas.transpose(1, 0)
+            ).permute(2, 0, 1)
             th_j = torch.matmul(self.th_J_regressor, th_v_shaped)
 
         # Below does: v_posed = v_shaped + posedirs * pose_map
-        naked = th_v_shaped + torch.matmul(
-            self.th_posedirs, th_pose_map.transpose(0, 1)).permute(2, 0, 1)
+        naked = th_v_shaped + torch.matmul(self.th_posedirs, th_pose_map.transpose(0, 1)).permute(
+            2, 0, 1
+        )
 
         # Per vertex offsets
         if th_offsets is not None:
@@ -131,7 +143,9 @@ class SMPL_Layer(Module):
         # Rotate each part
         for i in range(self.num_joints - 1):
             i_val = int(i + 1)
-            joint_rot = th_pose_rotmat[:, (i_val - 1) * 9:i_val * 9].contiguous().view(batch_size, 3, 3)
+            joint_rot = (
+                th_pose_rotmat[:, (i_val - 1) * 9 : i_val * 9].contiguous().view(batch_size, 3, 3)
+            )
             joint_j = th_j[:, i_val, :].contiguous().view(batch_size, 3, 1)
             parent = make_list(self.kintree_parents)[i_val]
             parent_j = th_j[:, parent, :].contiguous().view(batch_size, 3, 1)
@@ -143,19 +157,19 @@ class SMPL_Layer(Module):
 
         for i in range(self.num_joints):
             padd_zero = th_j.new_zeros(1)
-            joint_j = torch.cat([
-                th_j[:, i],
-                padd_zero.view(1, 1).repeat(batch_size, 1)
-            ], 1)
+            joint_j = torch.cat([th_j[:, i], padd_zero.view(1, 1).repeat(batch_size, 1)], 1)
             tmp = torch.bmm(th_results[i], joint_j.unsqueeze(2))
             th_results2[:, :, :, i] = th_results[i] - th_pack(tmp)
 
         th_T = torch.matmul(th_results2, self.th_weights.transpose(0, 1))
 
-        th_rest_shape_h = torch.cat([
-            th_v_posed.transpose(2, 1),
-            th_T.new_ones((batch_size, 1, th_v_posed.shape[1])),
-        ], 1)
+        th_rest_shape_h = torch.cat(
+            [
+                th_v_posed.transpose(2, 1),
+                th_T.new_ones((batch_size, 1, th_v_posed.shape[1])),
+            ],
+            1,
+        )
 
         th_verts = (th_T * th_rest_shape_h.unsqueeze(1)).sum(2).transpose(2, 1)
         th_verts = th_verts[:, :, :3]
